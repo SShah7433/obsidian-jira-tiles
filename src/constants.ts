@@ -24,7 +24,7 @@ export const PLUGIN_NAME = "Jira Tiles";
  * with the callback `obsidian://jira-tiles-auth-callback` and pastes the issued
  * client_id here before publishing. PKCE is used so no client_secret is needed.
  */
-export const OAUTH_CLIENT_ID = "REPLACE_WITH_YOUR_ATLASSIAN_OAUTH_CLIENT_ID";
+export const OAUTH_CLIENT_ID: string = "HBbdnAUQOkLmkMb0MtnEuoaGXmBFSuLu";
 
 /** Atlassian authorization endpoint (browser-facing). */
 export const OAUTH_AUTHORIZE_URL = "https://auth.atlassian.com/authorize";

@@ -78,10 +78,19 @@ describe("OAuthFlow.beginConnect", () => {
 });
 
 describe("OAuthFlow.handleCallback", () => {
-  it("ignores unknown state silently", async () => {
+  it("throws a descriptive error for an unknown state", async () => {
     const h = makeHarness();
-    await h.flow.handleCallback({ state: "nope", code: "x" });
+    await expect(
+      h.flow.handleCallback({ state: "nope", code: "x" }),
+    ).rejects.toThrow(/unknown state/);
     expect(h.saved.count).toBe(0);
+  });
+
+  it("throws when state is missing entirely", async () => {
+    const h = makeHarness();
+    await expect(h.flow.handleCallback({ code: "x" })).rejects.toThrow(
+      /did not include a `state`/,
+    );
   });
 
   it("on success: exchanges code, discovers cloudId, persists, resolves", async () => {
@@ -121,11 +130,14 @@ describe("OAuthFlow.handleCallback", () => {
     const beginP = h.flow.beginConnect();
     await waitFor(() => h.opened.length > 0);
     const state = new URL(h.opened[0]).searchParams.get("state")!;
+    // handleCallback now re-throws after rejecting the in-flight promise so
+    // the protocol handler can show a Notice. Swallow the throw here; the
+    // beginConnect promise should still see the rejection.
     await h.flow.handleCallback({
       state,
       error: "access_denied",
       error_description: "user cancelled",
-    });
+    }).catch(() => undefined);
     await expect(beginP).rejects.toThrow(/access_denied/);
   });
 
@@ -134,7 +146,7 @@ describe("OAuthFlow.handleCallback", () => {
     const beginP = h.flow.beginConnect();
     await waitFor(() => h.opened.length > 0);
     const state = new URL(h.opened[0]).searchParams.get("state")!;
-    await h.flow.handleCallback({ state });
+    await h.flow.handleCallback({ state }).catch(() => undefined);
     await expect(beginP).rejects.toThrow(/code/i);
   });
 
@@ -153,7 +165,7 @@ describe("OAuthFlow.handleCallback", () => {
     const beginP = h.flow.beginConnect();
     await waitFor(() => h.opened.length > 0);
     const state = new URL(h.opened[0]).searchParams.get("state")!;
-    await h.flow.handleCallback({ state, code: "CODE" });
+    await h.flow.handleCallback({ state, code: "CODE" }).catch(() => undefined);
     await expect(beginP).rejects.toThrow(/No accessible Jira sites/);
   });
 });

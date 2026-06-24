@@ -106,6 +106,7 @@ export interface AuthorizationParams {
  * @returns URL string suitable for `window.open` / `Platform.openExternal`.
  */
 export function buildAuthorizationUrl(params: AuthorizationParams): string {
+  assertClientIdConfigured();
   const url = new URL(OAUTH_AUTHORIZE_URL);
   url.searchParams.set("audience", "api.atlassian.com");
   url.searchParams.set("client_id", OAUTH_CLIENT_ID);
@@ -117,6 +118,25 @@ export function buildAuthorizationUrl(params: AuthorizationParams): string {
   url.searchParams.set("code_challenge", params.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
   return url.toString();
+}
+
+/**
+ * Throw a friendly error if the bundled OAUTH_CLIENT_ID has not been replaced
+ * with the user's own Atlassian Developer Console value. This is the most
+ * common cause of "Sign in failed" — the placeholder client_id is never going
+ * to authenticate against Atlassian.
+ */
+function assertClientIdConfigured(): void {
+  if (
+    !OAUTH_CLIENT_ID ||
+    OAUTH_CLIENT_ID === "REPLACE_WITH_YOUR_ATLASSIAN_OAUTH_CLIENT_ID"
+  ) {
+    throw new OAuthError(
+      0,
+      "OAuth client_id is not configured. Edit src/constants.ts " +
+        "(OAUTH_CLIENT_ID) and rebuild the plugin. See OAUTH_SETUP.md.",
+    );
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -153,11 +173,11 @@ export async function exchangeCodeForTokens(
     code_verifier: params.codeVerifier,
   });
   if (res.status >= 200 && res.status < 300) {
-    return res.json as TokenEndpointResponse;
+    return parseTokenResponse(res);
   }
   throw new OAuthError(
     res.status,
-    `Token exchange failed: ${res.text || `HTTP ${res.status}`}`,
+    describeTokenError(res, "Token exchange failed"),
   );
 }
 
@@ -172,12 +192,72 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
   });
   if (res.status >= 200 && res.status < 300) {
-    return res.json as TokenEndpointResponse;
+    return parseTokenResponse(res);
   }
   throw new OAuthError(
     res.status,
-    `Token refresh failed: ${res.text || `HTTP ${res.status}`}`,
+    describeTokenError(res, "Token refresh failed"),
   );
+}
+
+/**
+ * Parse a successful token endpoint response, falling back to text->JSON
+ * when the http layer didn't pre-parse `json` (the requestUrl wrapper in
+ * main.ts swallows JSON parse errors so the body is reachable from `text`).
+ */
+function parseTokenResponse(res: {
+  json: unknown;
+  text: string;
+}): TokenEndpointResponse {
+  let payload = res.json as TokenEndpointResponse | null | undefined;
+  if (!payload && res.text) {
+    try {
+      payload = JSON.parse(res.text) as TokenEndpointResponse;
+    } catch {
+      throw new OAuthError(
+        0,
+        `Token endpoint returned non-JSON response: ${truncate(res.text, 200)}`,
+      );
+    }
+  }
+  if (!payload || !payload.access_token) {
+    throw new OAuthError(
+      0,
+      "Token endpoint response missing access_token.",
+    );
+  }
+  return payload;
+}
+
+/**
+ * Build a useful error message from a non-2xx token endpoint response.
+ * Atlassian usually returns `{"error":"invalid_grant","error_description":"..."}`
+ * which is much more actionable than just the HTTP status.
+ */
+function describeTokenError(
+  res: { status: number; json: unknown; text: string },
+  prefix: string,
+): string {
+  let parsed: { error?: string; error_description?: string } | undefined;
+  if (res.json && typeof res.json === "object") {
+    parsed = res.json as { error?: string; error_description?: string };
+  } else if (res.text) {
+    try {
+      parsed = JSON.parse(res.text) as typeof parsed;
+    } catch {
+      // Not JSON — fall through.
+    }
+  }
+  if (parsed?.error) {
+    const desc = parsed.error_description ? `: ${parsed.error_description}` : "";
+    return `${prefix} (HTTP ${res.status}): ${parsed.error}${desc}`;
+  }
+  return `${prefix}: ${truncate(res.text, 200) || `HTTP ${res.status}`}`;
+}
+
+function truncate(s: string, max: number): string {
+  if (!s) return s;
+  return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
 export class OAuthError extends Error {

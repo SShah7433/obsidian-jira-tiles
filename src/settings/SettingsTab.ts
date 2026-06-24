@@ -146,7 +146,12 @@ export class JiraTilesSettingTab extends PluginSettingTab {
                 this.plugin.onAuthChanged();
                 this.display();
               } catch (err) {
-                new Notice(`Sign-in failed: ${(err as Error).message}`);
+                // Longer Notice timeout (10s) so the user has time to read
+                // the actual error before it disappears. Also log the full
+                // error to the console for DevTools debugging.
+                console.error("[jira-tiles] Connect failed:", err);
+                const msg = (err as Error).message ?? String(err);
+                new Notice(`Sign-in failed: ${msg}`, 10_000);
               }
             }),
         );

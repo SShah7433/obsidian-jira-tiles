@@ -21,6 +21,33 @@ import { IssueCache } from "./cache/issueCache";
 import { buildCodeBlockProcessor } from "./render/codeBlockProcessor";
 import { buildCommands } from "./commands";
 
+/**
+ * Open an external URL using the most reliable mechanism available.
+ *
+ * Inside Obsidian Desktop (Electron), `window.open` may open an *internal*
+ * browser window which does NOT trigger the OS protocol handler when the
+ * remote site redirects to `obsidian://...`. We bypass that by calling
+ * Electron's `shell.openExternal` when it's reachable, falling back to
+ * `window.open` on mobile / unknown environments.
+ */
+function openExternalUrl(url: string): void {
+  // Try Electron first — only available on desktop.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const electron = (window as { require?: (m: string) => unknown }).require?.(
+      "electron",
+    ) as { shell?: { openExternal?: (u: string) => Promise<void> } } | undefined;
+    if (electron?.shell?.openExternal) {
+      void electron.shell.openExternal(url);
+      return;
+    }
+  } catch {
+    // Not Electron — fall through.
+  }
+  // Mobile / fallback.
+  window.open(url, "_blank", "noopener");
+}
+
 export default class JiraTilesPlugin extends Plugin {
   settings: PluginSettings = { ...DEFAULT_SETTINGS };
   authManager!: AuthManager;
@@ -48,19 +75,45 @@ export default class JiraTilesPlugin extends Plugin {
     this.cache = new IssueCache(() => this.settings.cacheTtlMinutes * 60_000);
 
     this.oauthFlow = new OAuthFlow({
-      openExternal: (url) => window.open(url, "_blank", "noopener"),
+      openExternal: (url) => {
+        // Console-log so users debugging from DevTools can paste the URL
+        // manually if Obsidian's launcher misbehaves.
+        console.log("[jira-tiles] opening OAuth authorize URL:", url);
+        openExternalUrl(url);
+      },
       http: async (url, body) => {
-        const res = await requestUrl({
-          url,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Accept: "application/json",
-          },
-          body: new URLSearchParams(body).toString(),
-          throw: false,
-        });
-        return { status: res.status, json: res.json, text: res.text };
+        const formBody = new URLSearchParams(body).toString();
+        try {
+          const res = await requestUrl({
+            url,
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body: formBody,
+            throw: false,
+          });
+          // requestUrl's `json` getter throws when body is not valid JSON; do
+          // it defensively so we can surface the raw text in error messages.
+          let json: unknown = undefined;
+          try {
+            json = res.json;
+          } catch {
+            json = undefined;
+          }
+          if (res.status < 200 || res.status >= 300) {
+            console.error(
+              "[jira-tiles] OAuth HTTP error",
+              res.status,
+              res.text,
+            );
+          }
+          return { status: res.status, json, text: res.text ?? "" };
+        } catch (err) {
+          console.error("[jira-tiles] OAuth HTTP request threw:", err);
+          throw err;
+        }
       },
       getSettings: () => this.settings,
       saveSettings: () => this.saveSettings(),
@@ -75,7 +128,7 @@ export default class JiraTilesPlugin extends Plugin {
         client: this.client,
         cache: this.cache,
         getSettings: () => this.settings,
-        openUrl: (url) => window.open(url, "_blank", "noopener"),
+        openUrl: (url) => openExternalUrl(url),
       }),
     );
 
@@ -83,10 +136,19 @@ export default class JiraTilesPlugin extends Plugin {
     this.registerObsidianProtocolHandler(
       "jira-tiles-auth-callback",
       (params) => {
+        console.log(
+          "[jira-tiles] OAuth callback received with params:",
+          // Don't log the actual code — just the keys that arrived.
+          Object.keys(params),
+        );
         // Fire-and-forget — handleCallback resolves/rejects the in-flight
         // promise from beginConnect(), so the SettingsTab can react to it.
         this.oauthFlow.handleCallback(params).catch((err) => {
-          new Notice(`Jira sign-in failed: ${(err as Error).message}`);
+          console.error("[jira-tiles] handleCallback error:", err);
+          new Notice(
+            `Jira sign-in failed: ${(err as Error).message ?? String(err)}`,
+            10_000,
+          );
         });
       },
     );

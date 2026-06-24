@@ -86,6 +86,31 @@ Copy `main.js`, `manifest.json`, `styles.css` into your vault's
 
 ## Troubleshooting
 
+### "Sign in failed" with no other detail
+
+The plugin tries to surface the underlying error in a Notice, but if you only
+see the generic "Sign in failed" or the Notice disappears too quickly, open
+Obsidian's DevTools (Cmd/Ctrl-Shift-I on desktop) and look for log entries
+prefixed with `[jira-tiles]`. Common causes:
+
+| What the console shows | Cause + fix |
+|---|---|
+| `OAuth client_id is not configured` | You're running the unmodified plugin source. Edit `src/constants.ts` (`OAUTH_CLIENT_ID`) and rebuild. |
+| `Token exchange failed (HTTP 400): invalid_grant` | The PKCE `code_verifier` did not match the `code_challenge` Atlassian remembered, OR the redirect URI in the OAuth app does not match `obsidian://jira-tiles-auth-callback` exactly. Re-check your Atlassian Developer Console settings. |
+| `Token exchange failed (HTTP 401): invalid_client` | The `client_id` baked into `src/constants.ts` does not match a real Atlassian OAuth app, or the app was deleted. |
+| `Atlassian returned access_denied: …` | You clicked Cancel/Reject in the consent screen, or the OAuth app's Permissions don't include the requested scopes (`read:jira-work`, `read:jira-user`, `offline_access`). |
+| `Could not list accessible Jira sites` | The token exchange succeeded but `/oauth/token/accessible-resources` failed. Usually a network or scope issue. |
+| `Received callback for unknown state` | The Connect attempt timed out (5 min) or another browser window already completed it. Click Connect again. |
+| `Atlassian callback did not include a state parameter` | The OAuth app's redirect URI is misconfigured (Atlassian normally always includes state). Re-check the callback URL in the Developer Console. |
+
+If a browser window opened *inside* Obsidian (a popup-style window) rather than
+your system browser, the redirect to `obsidian://...` can't reach the OS
+protocol handler. The plugin tries Electron's `shell.openExternal` first, but
+some Obsidian installs (older versions, sandboxed builds) don't expose it.
+Workaround: copy the URL the Connect button opens (it's logged to the console
+as `[jira-tiles] opening OAuth authorize URL`) and paste it into your normal
+browser instead.
+
 ### "The redirect URI didn't match" error
 
 Make sure `manifest.json`'s callback URL is exactly:

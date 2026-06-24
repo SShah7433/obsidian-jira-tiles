@@ -113,9 +113,13 @@ export class OAuthFlow {
     const pending = state ? this.pending.get(state) : undefined;
     if (!pending) {
       // Either CSRF, the user already completed the flow, or a stale link.
-      // Nothing to do; surface a console message but do not throw — the
-      // protocol handler is fire-and-forget.
-      return;
+      // Surface this — the user clicked Connect and is now wondering why
+      // nothing happened.
+      const reason = !state
+        ? "Atlassian callback did not include a `state` parameter."
+        : `Received callback for unknown state — the Connect attempt may have ` +
+          `timed out (5 min) or already been completed in another window.`;
+      throw new OAuthError(0, reason);
     }
     this.pending.delete(state);
 
@@ -137,14 +141,31 @@ export class OAuthFlow {
         codeVerifier: pending.codeVerifier,
       });
 
-      // Discover which Jira site the user has selected.
-      const sites = await this.deps.client.getAccessibleResources(
-        tokens.access_token,
-      );
-      if (sites.length === 0) {
+      if (!tokens || !tokens.access_token) {
         throw new OAuthError(
           0,
-          "No accessible Jira sites for this account.",
+          "Token endpoint returned no access_token — check your OAuth app configuration in Atlassian Developer Console.",
+        );
+      }
+
+      // Discover which Jira site the user has selected.
+      let sites;
+      try {
+        sites = await this.deps.client.getAccessibleResources(
+          tokens.access_token,
+        );
+      } catch (err) {
+        throw new OAuthError(
+          0,
+          `Could not list accessible Jira sites: ${
+            (err as Error).message ?? String(err)
+          }`,
+        );
+      }
+      if (!sites || sites.length === 0) {
+        throw new OAuthError(
+          0,
+          "No accessible Jira sites for this account. Confirm your Atlassian account can access at least one Jira Cloud site, and that the OAuth app's `read:jira-work` scope is approved.",
         );
       }
       // MVP: pin to the first site. Future: prompt when multiple.
@@ -167,6 +188,10 @@ export class OAuthFlow {
       pending.resolve(next);
     } catch (err) {
       pending.reject(err instanceof Error ? err : new Error(String(err)));
+      // Re-throw so the protocol handler in main.ts sees the error and surfaces
+      // it via Notice; otherwise the only visible message is the generic
+      // "Sign-in failed" from the SettingsTab catch block.
+      throw err;
     }
   }
 
