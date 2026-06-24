@@ -69,6 +69,26 @@ export class PluginSettingTab {
   hide(): void {}
 }
 
+/** Modal — bare-bones mock so `extends Modal` compiles. */
+export class Modal {
+  app: App;
+  contentEl: HTMLElement;
+  titleEl: HTMLElement;
+  constructor(app: App) {
+    this.app = app;
+    this.contentEl = document.createElement("div");
+    this.titleEl = document.createElement("h2");
+  }
+  open(): void {
+    if (typeof this.onOpen === "function") void this.onOpen();
+  }
+  close(): void {
+    if (typeof this.onClose === "function") this.onClose();
+  }
+  onOpen?(): void | Promise<void>;
+  onClose?(): void;
+}
+
 /** Setting builder — chainable methods that return `this`. */
 export class Setting {
   containerEl: HTMLElement;

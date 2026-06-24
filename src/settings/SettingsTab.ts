@@ -20,6 +20,7 @@ import {
 } from "../constants";
 import { isApiTokenStateComplete, normalizeSiteUrl } from "../auth/apiToken";
 import type { CustomFieldConfig } from "./types";
+import { FieldPickerModal } from "./FieldPickerModal";
 
 /**
  * Forward-declared type so this file does not import from main.ts (which would
@@ -36,6 +37,8 @@ export interface JiraTilesPluginLike {
    * in tests / lightweight harnesses.
    */
   oauthFlow?: { beginConnect(): Promise<unknown>; cancelAll(reason?: string): void };
+  /** Jira client — used by the field discovery picker. Optional for harnesses. */
+  client?: import("../jira/client").JiraClient;
 }
 
 export class JiraTilesSettingTab extends PluginSettingTab {
@@ -349,7 +352,6 @@ export class JiraTilesSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn
           .setButtonText("Add custom field")
-          .setCta()
           .onClick(async () => {
             this.plugin.settings.customFields.push({
               id: "",
@@ -358,6 +360,31 @@ export class JiraTilesSettingTab extends PluginSettingTab {
             });
             await this.plugin.saveSettings();
             this.display();
+          }),
+      )
+      .addButton((btn) =>
+        btn
+          .setButtonText("Discover from Jira")
+          .setCta()
+          .onClick(() => {
+            if (!this.plugin.client) {
+              new Notice("Jira client not available.");
+              return;
+            }
+            new FieldPickerModal(this.plugin.app, {
+              client: this.plugin.client,
+              existing: this.plugin.settings.customFields,
+              onConfirm: async (selections) => {
+                this.plugin.settings.customFields.push(...selections);
+                await this.plugin.saveSettings();
+                this.display();
+                new Notice(
+                  selections.length === 1
+                    ? "Added 1 field."
+                    : `Added ${selections.length} fields.`,
+                );
+              },
+            }).open();
           }),
       );
   }

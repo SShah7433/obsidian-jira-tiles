@@ -183,6 +183,7 @@ if (!HTMLElement.prototype.setText) {
 export class Plugin {}
 export class PluginSettingTab {}
 export class Setting {}
+export class Modal {}
 export class App {}
 export const Platform = { isMobile: false, isDesktop: true };
 export type MarkdownPostProcessorContext = unknown;
