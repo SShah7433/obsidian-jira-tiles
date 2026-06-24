@@ -567,6 +567,9 @@
   color: var(--text-error);
   font-size: var(--font-ui-smaller);
   margin: 0;
+  /* Honor explicit \n line breaks in error messages so multi-line 404 hints
+     render as separate lines. */
+  white-space: pre-line;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -68,6 +68,7 @@ export class JiraClient {
     const path = `/rest/api/${JIRA_REST_API_VERSION}/issue/${encodeURIComponent(
       key,
     )}${fieldsParam}`;
+    console.log("[jira-tiles] getIssue", key, "path:", path);
     return this.send<JiraIssue>("GET", path);
   }
 
@@ -144,10 +145,47 @@ export class JiraClient {
     }
 
     if (res.status >= 200 && res.status < 300) {
-      return res.json as T;
+      // requestUrl's `.json` may have failed if Content-Type is missing or
+      // the body is empty. Fall back to JSON.parse(text) for robustness.
+      let payload: unknown = res.json;
+      if (payload === null || payload === undefined) {
+        if (res.text) {
+          try {
+            payload = JSON.parse(res.text);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      return payload as T;
     }
 
-    throw new JiraApiError(res.status, this.describeError(res.status), res.text);
+    // Diagnostic: log enough to tell apart "wrong site URL" from "user
+    // doesn't have access" from "issue genuinely missing". We deliberately
+    // include the *full URL* and *response body excerpt* so the user can
+    // paste it into a real browser request to compare.
+    console.error(
+      "[jira-tiles] Jira request failed",
+      JSON.stringify(
+        {
+          method,
+          baseUrl: ctx.baseUrl,
+          path,
+          fullUrl: ctx.baseUrl + path,
+          status: res.status,
+          authMode: ctx.refreshable ? "oauth" : "apiToken",
+          bodySnippet: (res.text ?? "").slice(0, 400),
+        },
+        null,
+        2,
+      ),
+    );
+
+    throw new JiraApiError(
+      res.status,
+      this.describeError(res.status, ctx.baseUrl, path),
+      res.text,
+    );
   }
 
   private async exec(
@@ -193,14 +231,24 @@ export class JiraClient {
     });
   }
 
-  private describeError(status: number): string {
+  private describeError(status: number, baseUrl?: string, path?: string): string {
     switch (status) {
       case 401:
         return "Authentication failed. Check your credentials in Jira Tiles settings.";
       case 403:
         return "You do not have permission to view this issue.";
       case 404:
-        return "Issue not found.";
+        // Atlassian deliberately conflates 'issue does not exist' with 'you
+        // don't have permission to view it' to prevent leaking issue keys.
+        // Hint at the most common causes so the user knows where to look.
+        return (
+          "Issue not found (HTTP 404). This usually means one of:\n" +
+          "  - The site URL is wrong (check Settings → Jira Tiles)\n" +
+          "  - The API token's account can't see this issue\n" +
+          "    (different from the user logged into Jira in your browser)\n" +
+          "  - The issue genuinely doesn't exist on this site." +
+          (baseUrl && path ? `\nRequested: ${baseUrl}${path}` : "")
+        );
       case 429:
         return "Jira rate limit exceeded. Please wait and try again.";
       case 0:
