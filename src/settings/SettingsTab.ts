@@ -31,6 +31,11 @@ export interface JiraTilesPluginLike {
   saveSettings(): Promise<void>;
   /** Called by the tab when the active auth method changes so caches/state can reset. */
   onAuthChanged(): void;
+  /**
+   * Optional OAuth orchestration handle — present in the real plugin, omitted
+   * in tests / lightweight harnesses.
+   */
+  oauthFlow?: { beginConnect(): Promise<unknown>; cancelAll(reason?: string): void };
 }
 
 export class JiraTilesSettingTab extends PluginSettingTab {
@@ -86,9 +91,73 @@ export class JiraTilesSettingTab extends PluginSettingTab {
 
   private renderConnectionSection(parent: HTMLElement): void {
     parent.createEl("h2", { text: "Connection" });
+
+    /* OAuth section ------------------------------------------------------- */
+
+    parent.createEl("h3", { text: "OAuth (recommended)" });
     parent.createEl("p", {
-      text: "OAuth (recommended for SSO) will arrive in a future build. For now, use an Atlassian API token.",
       cls: "setting-item-description",
+      text:
+        "OAuth supports SSO and avoids static credentials. The plugin will " +
+        "open your browser to authorize, and Atlassian will redirect back " +
+        "to Obsidian via a custom URI handler.",
+    });
+
+    if (this.plugin.settings.authMethod === "oauth" && this.plugin.settings.oauth) {
+      const o = this.plugin.settings.oauth;
+      new Setting(parent)
+        .setName("Connected")
+        .setDesc(`${o.siteName} (${o.siteUrl})`)
+        .addButton((btn) =>
+          btn
+            .setButtonText("Disconnect")
+            .setWarning()
+            .onClick(async () => {
+              this.plugin.settings.authMethod = "none";
+              this.plugin.settings.oauth = undefined;
+              await this.plugin.saveSettings();
+              this.plugin.onAuthChanged();
+              new Notice("Disconnected from Jira.");
+              this.display();
+            }),
+        );
+    } else {
+      new Setting(parent)
+        .setName("Connect with Atlassian")
+        .setDesc(
+          "Opens https://auth.atlassian.com in your browser, then returns to Obsidian.",
+        )
+        .addButton((btn) =>
+          btn
+            .setButtonText("Connect")
+            .setCta()
+            .onClick(async () => {
+              if (!this.plugin.oauthFlow) {
+                new Notice("OAuth not available in this build.");
+                return;
+              }
+              try {
+                new Notice("Opening browser to sign in…");
+                await this.plugin.oauthFlow.beginConnect();
+                new Notice("Connected to Jira.");
+                this.plugin.onAuthChanged();
+                this.display();
+              } catch (err) {
+                new Notice(`Sign-in failed: ${(err as Error).message}`);
+              }
+            }),
+        );
+    }
+
+    /* API token section --------------------------------------------------- */
+
+    parent.createEl("h3", { text: "API token (fallback)" });
+    parent.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Use an Atlassian API token. Generate at " +
+        "https://id.atlassian.com/manage-profile/security/api-tokens. " +
+        "Suitable when OAuth/SSO is not available.",
     });
 
     const apiToken = this.plugin.settings.apiToken ?? {

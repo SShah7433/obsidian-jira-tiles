@@ -4,7 +4,33 @@
  * We extend HTMLElement with the createDiv/createEl helpers Obsidian normally
  * provides, since renderer code calls them directly. Implementations are
  * minimal but compatible with the production usage patterns.
+ *
+ * We also polyfill TextEncoder/TextDecoder which jsdom does not expose by
+ * default but `crypto.subtle.digest` (used by the PKCE code_challenge helper)
+ * needs.
  */
+
+import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from "util";
+
+if (typeof (globalThis as { TextEncoder?: unknown }).TextEncoder === "undefined") {
+  (globalThis as { TextEncoder: unknown }).TextEncoder = NodeTextEncoder;
+}
+if (typeof (globalThis as { TextDecoder?: unknown }).TextDecoder === "undefined") {
+  (globalThis as { TextDecoder: unknown }).TextDecoder = NodeTextDecoder;
+}
+
+// Provide a Web Crypto subtle implementation if jsdom did not. Node 16+ exposes
+// the `crypto` module's `webcrypto` global; map it onto globalThis.crypto.
+if (typeof (globalThis as { crypto?: { subtle?: unknown } }).crypto === "undefined" || !globalThis.crypto.subtle) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const nodeCrypto = require("crypto") as typeof import("crypto");
+  if (nodeCrypto.webcrypto) {
+    Object.defineProperty(globalThis, "crypto", {
+      value: nodeCrypto.webcrypto,
+      configurable: true,
+    });
+  }
+}
 
 declare global {
   interface HTMLElement {

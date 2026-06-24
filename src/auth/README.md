@@ -7,8 +7,8 @@ Authentication strategies for the Jira REST API.
 | File              | Purpose                                                           |
 |-------------------|-------------------------------------------------------------------|
 | `apiToken.ts`     | API-token (Basic auth) helpers: header building, URL normalization|
-| `oauth.ts`        | OAuth 2.0 (3LO) + PKCE flow — Phase 3                             |
-| `tokenStore.ts`   | OAuth token persistence + refresh — Phase 3                       |
+| `oauth.ts`        | Pure OAuth 2.0 + PKCE primitives (verifier, challenge, URL, token endpoint) |
+| `tokenStore.ts`   | OAuthFlow orchestrator: begin/handleCallback/refresh/cancel       |
 | `authManager.ts`  | Unified resolver returning an `AuthContext` for each REST call    |
 
 ## Design
@@ -38,20 +38,27 @@ revoked, the user must regenerate it.
 Pros: simple, well-understood.
 Cons: doesn't work for SSO-only accounts. Tokens stored in plain text on disk.
 
-### OAuth 2.0 + PKCE (Phase 3 — planned)
+### OAuth 2.0 + PKCE (Phase 3)
 
 The 3-legged OAuth flow:
 
-1. User clicks "Connect" → plugin opens
+1. User clicks "Connect" → plugin generates a fresh PKCE `code_verifier`,
+   derives the `code_challenge`, generates a CSRF `state`, and opens
    `https://auth.atlassian.com/authorize?...&redirect_uri=obsidian://jira-tiles-auth-callback`
 2. User authenticates in their browser (works with SSO).
-3. Atlassian redirects to `obsidian://jira-tiles-auth-callback?code=...`.
-4. Obsidian routes the URI to our protocol handler; we exchange the code for
-   tokens (with PKCE `code_verifier`).
+3. Atlassian redirects to `obsidian://jira-tiles-auth-callback?code=...&state=...`.
+4. Obsidian routes the URI to our protocol handler; `OAuthFlow.handleCallback`
+   verifies state, exchanges code → tokens with PKCE `code_verifier`.
 5. We query `/oauth/token/accessible-resources` to discover the user's
-   `cloudId` and pin to one site.
+   `cloudId` and pin to the first site.
+6. State is persisted via `plugin.saveData(this.settings)`.
 
-Tokens auto-refresh on every request when within leeway, and once on 401.
+Tokens auto-refresh on every request when within leeway (default 60s) and
+once on 401 via `AuthManager.forceRefresh()`. Atlassian rotates refresh
+tokens on every refresh, so the new value is always stored.
+
+Pending authorizations time out after 5 minutes; the flow self-heals when
+the user closes the browser or never completes consent.
 
 ## Security notes
 
