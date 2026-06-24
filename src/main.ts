@@ -82,25 +82,30 @@ export default class JiraTilesPlugin extends Plugin {
         openExternalUrl(url);
       },
       http: async (url, body) => {
-        // Atlassian's token endpoint accepts JSON-encoded bodies (and that's
-        // what their official examples use). It also accepts form-encoded,
-        // but JSON is more reliable across edge cases / proxies.
-        const jsonBody = JSON.stringify(body);
-        console.log(
-          "[jira-tiles] OAuth POST",
-          url,
-          "params:",
-          Object.keys(body).join(","),
+        // Atlassian's token endpoint follows OAuth 2.0 RFC 6749 §4.1.3 and
+        // accepts application/x-www-form-urlencoded bodies. (Their docs also
+        // show a JSON example, but JSON bodies have empirically returned
+        // `access_denied: Unauthorized` 401s on some accounts as of late
+        // 2026 — possibly due to body parsing differences across their
+        // edge proxies. Form-encoded is the standard and works reliably.)
+        const formBody = new URLSearchParams(body).toString();
+        // Redact `code` and `code_verifier` (sensitive) before logging.
+        const redactedKeys = new Set(["code", "code_verifier", "refresh_token"]);
+        const redactedBody = Object.fromEntries(
+          Object.entries(body).map(([k, v]) =>
+            redactedKeys.has(k) ? [k, `<${(v as string).length} chars>`] : [k, v],
+          ),
         );
+        console.log("[jira-tiles] OAuth POST", url, "body:", redactedBody);
         try {
           const res = await requestUrl({
             url,
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "application/x-www-form-urlencoded",
               Accept: "application/json",
             },
-            body: jsonBody,
+            body: formBody,
             throw: false,
           });
           // requestUrl's `json` getter throws when body is not valid JSON; do
