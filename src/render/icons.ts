@@ -133,7 +133,7 @@ export function renderPriorityIcon(
  * 16x16 with rounded corners — matches Atlassian's visual weight.
  */
 const ISSUE_TYPE_SVGS: Record<string, string> = {
-  story: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="jira-icon-svg"><rect x="0" y="0" width="16" height="16" rx="3" fill="#63ba3c"/><path d="M3.5 6h6v1h-6V6zm0 3h6v1h-6V9z" fill="#fff"/></svg>`,
+  story: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="jira-icon-svg"><rect x="0" y="0" width="16" height="16" rx="3" fill="#63ba3c"/><rect x="4" y="5.5" width="8" height="1.5" rx="0.5" fill="#fff"/><rect x="4" y="9" width="8" height="1.5" rx="0.5" fill="#fff"/></svg>`,
   task: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="jira-icon-svg"><rect x="0" y="0" width="16" height="16" rx="3" fill="#4bade8"/><path d="M11.5 4.5l-5 5L4 7.2l-1 1 3.5 3.3 6-6-1-1z" fill="#fff"/></svg>`,
   bug: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="jira-icon-svg"><circle cx="8" cy="8" r="7" fill="#e5493a"/><circle cx="8" cy="8" r="2.4" fill="#fff"/></svg>`,
   epic: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="jira-icon-svg"><rect x="0" y="0" width="16" height="16" rx="3" fill="#904ee2"/><path d="M9.2 2.5L4 9h3l-.5 4.5L12 7H9l.2-4.5z" fill="#fff"/></svg>`,
