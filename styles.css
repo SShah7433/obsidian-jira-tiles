@@ -1,14 +1,11 @@
 /* ==========================================================================
    Jira Tiles — plugin styles
    --------------------------------------------------------------------------
-   All selectors are scoped under `.jira-tile` or `.jira-tiles-*` so the plugin
-   plays nicely with other Obsidian themes/plugins.
+   Layout is mobile-first using flex/grid with min-width: 0 so tiles reflow
+   gracefully at 320px. Larger viewports get a denser two-column meta grid.
 
    Colors and typography use Obsidian's CSS custom properties so the tile
    automatically respects the active light/dark theme.
-
-   The "mobile-first" layout uses flexbox + flex-wrap with min-width: 0 so
-   tiles gracefully reflow at 320px. Larger viewports get a denser meta row.
    ========================================================================== */
 
 /* -------------------------------------------------------------------------- */
@@ -97,155 +94,172 @@
 /* -------------------------------------------------------------------------- */
 
 .jira-tile-container {
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .jira-tile {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 0.875rem;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  background: var(--background-secondary);
+  border-radius: 12px;
+  background: var(--background-primary);
   color: var(--text-normal);
   font-size: var(--font-ui-small);
   line-height: 1.4;
-  min-width: 0; /* allow flex children to shrink below their intrinsic size */
+  min-width: 0;
+  overflow: hidden;
 }
 
-/* Header: type icon, key, summary, action buttons */
+/* Body section (everything above the footer) */
+
+.jira-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Header: type icon + summary + subtitle                                     */
+/* -------------------------------------------------------------------------- */
 
 .jira-tile-header {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.875rem;
   min-width: 0;
 }
 
 .jira-tile-issuetype {
   flex: 0 0 auto;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.jira-tile-key {
-  flex: 0 0 auto;
-  font-weight: 600;
-  color: var(--text-accent);
-  text-decoration: none;
-  white-space: nowrap;
+.jira-tile-issuetype img,
+.jira-tile-issuetype svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-.jira-tile-key:hover {
-  text-decoration: underline;
+.jira-tile-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .jira-tile-summary {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: 500;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-normal);
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.jira-tile-subtitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
   word-break: break-word;
 }
 
-.jira-tile-actions {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 0.25rem;
+/* -------------------------------------------------------------------------- */
+/* Field grid: Status / Priority on one row, Assignee full-width below        */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem 1.25rem;
 }
 
-.jira-tile-actions button {
-  /* 44x44 touch targets per Apple HIG, while staying visually compact. */
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0.25rem;
-  border: 1px solid transparent;
-  background: transparent;
+.jira-tile-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+/* Assignee + custom fields span both columns. */
+.jira-tile-cell--assignee,
+.jira-tile-cell--custom,
+.jira-tile-cell--duedate {
+  grid-column: 1 / -1;
+}
+
+.jira-tile-field-label {
+  font-size: 0.85rem;
   color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
+  font-weight: 500;
 }
 
-.jira-tile-actions button:hover,
-.jira-tile-actions button:focus-visible {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-  border-color: var(--background-modifier-border);
-}
+/* -------------------------------------------------------------------------- */
+/* Status badge — light cyan rounded rectangle (per design)                   */
+/* -------------------------------------------------------------------------- */
 
-/* Meta row: status, priority, due date, assignee */
-
-.jira-tile-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  align-items: center;
-}
-
-.jira-tile-status {
+.jira-tile-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
+  align-self: flex-start;
+  padding: 0.2rem 0.625rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.jira-tile-status--blue-gray { background: #dfe1e6; color: #42526e; }
-.jira-tile-status--yellow    { background: #fff0b3; color: #974f0c; }
-.jira-tile-status--green     { background: #abf5d1; color: #064; }
-.jira-tile-status--brown     { background: #ffd2b3; color: #793e0d; }
-.jira-tile-status--warm-red  { background: #ffbdad; color: #bf2600; }
-.jira-tile-status--medium-gray {
+.jira-tile-status-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status colors driven by Atlassian statusCategory.colorName.
+   Light theme uses pastel fills with darker text; dark theme inverts. */
+
+.jira-tile-status-badge--blue-gray   { background: #deebff; color: #0747a6; }
+.jira-tile-status-badge--yellow      { background: #fff0b3; color: #974f0c; }
+.jira-tile-status-badge--green       { background: #abf5d1; color: #006644; }
+.jira-tile-status-badge--brown       { background: #ffd2b3; color: #793e0d; }
+.jira-tile-status-badge--warm-red    { background: #ffbdad; color: #bf2600; }
+.jira-tile-status-badge--medium-gray {
   background: var(--background-modifier-border);
   color: var(--text-muted);
 }
 
-.theme-dark .jira-tile-status--blue-gray { background: #2a2f38; color: #b6c2cf; }
-.theme-dark .jira-tile-status--yellow    { background: #533f04; color: #f5cd47; }
-.theme-dark .jira-tile-status--green     { background: #164b35; color: #7ee2b8; }
-.theme-dark .jira-tile-status--brown     { background: #5d2c0c; color: #fec7a4; }
-.theme-dark .jira-tile-status--warm-red  { background: #5d1f1a; color: #ff9c8f; }
+.theme-dark .jira-tile-status-badge--blue-gray   { background: #1c3252; color: #85b8ff; }
+.theme-dark .jira-tile-status-badge--yellow      { background: #533f04; color: #f5cd47; }
+.theme-dark .jira-tile-status-badge--green       { background: #164b35; color: #7ee2b8; }
+.theme-dark .jira-tile-status-badge--brown       { background: #5d2c0c; color: #fec7a4; }
+.theme-dark .jira-tile-status-badge--warm-red    { background: #5d1f1a; color: #ff9c8f; }
 
-.jira-tile-priority,
-.jira-tile-duedate,
-.jira-tile-assignee {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--text-muted);
-}
+/* -------------------------------------------------------------------------- */
+/* Priority + due date values                                                 */
+/* -------------------------------------------------------------------------- */
 
-.jira-tile-assignee-avatar {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
-/* Custom fields section */
-
-.jira-tile-customfields {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 0.75rem;
-  margin-top: 0.25rem;
-  font-size: var(--font-ui-smaller);
-}
-
-.jira-tile-customfield-label {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
+.jira-tile-priority-value,
+.jira-tile-duedate-value,
 .jira-tile-customfield-value {
+  font-size: 0.95rem;
   color: var(--text-normal);
   word-break: break-word;
+  /* Truncate single-line values that overflow (priority can be long, e.g.
+     "3-Medium (potential to escalate)"). */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
 }
 
 .jira-tile-customfield-value code {
@@ -255,29 +269,159 @@
   border-radius: 3px;
 }
 
-/* Footer: last-updated + offline indicator */
+/* -------------------------------------------------------------------------- */
+/* Assignee chip — pastel cyan pill with avatar + name                        */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile-assignee-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.25rem 0.625rem 0.25rem 0.25rem;
+  background: #deebff;
+  color: #0747a6;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.theme-dark .jira-tile-assignee-chip {
+  background: #1c3252;
+  color: #cce0ff;
+}
+
+.jira-tile-assignee-chip--unassigned {
+  padding: 0.25rem 0.625rem;
+  font-style: italic;
+  font-weight: 500;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.jira-tile-assignee-chip img,
+.jira-tile-assignee-chip span.jira-tile-assignee-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Footer: timestamp left, Open in Jira CTA right                             */
+/* -------------------------------------------------------------------------- */
 
 .jira-tile-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-faint);
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
 }
 
-.jira-tile-offline-badge {
+.jira-tile-timestamp {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  /* Match the touch-target floor without visually inflating. */
+  min-height: 36px;
   display: inline-flex;
-  gap: 0.25rem;
   align-items: center;
-  color: var(--text-warning, #b45f06);
+}
+
+.jira-tile-timestamp:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
+}
+
+.jira-tile-timestamp--stale {
+  color: var(--text-warning, #b45309);
+}
+
+.jira-tile-timestamp--stale::before {
+  content: "⚠ ";
+  margin-right: 0.25rem;
+}
+
+.jira-tile-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.jira-tile-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  /* 44px floor for touch targets. */
+  min-height: 44px;
+  background: #1f8b4c;
+  color: #ffffff !important;
+  border: 1px solid #1a7541;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.jira-tile-open-btn:hover,
+.jira-tile-open-btn:focus-visible {
+  background: #1a7541;
+  border-color: #14613a;
+  text-decoration: none !important;
+}
+
+.theme-dark .jira-tile-open-btn {
+  background: #1f8b4c;
+  border-color: #2cab63;
+}
+
+.theme-dark .jira-tile-open-btn:hover,
+.theme-dark .jira-tile-open-btn:focus-visible {
+  background: #2cab63;
+  border-color: #38c773;
+}
+
+.jira-tile-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  min-height: 44px;
+  background: transparent;
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jira-tile-retry-btn:hover,
+.jira-tile-retry-btn:focus-visible {
+  background: var(--background-modifier-hover);
 }
 
 /* -------------------------------------------------------------------------- */
 /* States: loading / error                                                    */
 /* -------------------------------------------------------------------------- */
 
+@keyframes jira-tile-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .jira-tile--loading .jira-tile-summary,
-.jira-tile--loading .jira-tile-key,
-.jira-tile--loading .jira-tile-meta {
+.jira-tile--loading .jira-tile-subtitle {
   background: linear-gradient(
     90deg,
     var(--background-modifier-border) 25%,
@@ -288,11 +432,20 @@
   color: transparent;
   border-radius: 4px;
   animation: jira-tile-shimmer 1.4s ease-in-out infinite;
+  min-height: 1.2em;
 }
 
-@keyframes jira-tile-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.jira-tile--loading .jira-tile-issuetype {
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+  animation: jira-tile-shimmer 1.4s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--background-modifier-border) 25%,
+    var(--background-modifier-hover) 50%,
+    var(--background-modifier-border) 75%
+  );
+  background-size: 200% 100%;
 }
 
 .jira-tile--error {
@@ -309,16 +462,26 @@
 /* -------------------------------------------------------------------------- */
 
 @media (max-width: 480px) {
-  .jira-tile-header {
-    flex-wrap: wrap;
+  .jira-tile-body {
+    padding: 0.875rem 1rem 1rem;
+    gap: 0.875rem;
   }
-  .jira-tile-actions {
-    margin-left: auto;
-  }
-  .jira-tile-customfields {
+  .jira-tile-grid {
+    /* Stack everything on phone widths. */
     grid-template-columns: 1fr;
   }
-  .jira-tile-customfield-label {
-    margin-top: 0.25rem;
+  .jira-tile-cell--status,
+  .jira-tile-cell--priority {
+    grid-column: 1 / -1;
+  }
+  .jira-tile-summary {
+    font-size: 1rem;
+  }
+  .jira-tile-footer {
+    padding: 0.75rem 1rem;
+  }
+  .jira-tile-open-btn,
+  .jira-tile-retry-btn {
+    padding: 0.5rem 0.875rem;
   }
 }

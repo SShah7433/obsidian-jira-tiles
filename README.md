@@ -10,12 +10,13 @@ PROJ-123
 
 The plugin replaces that block with a rich tile showing:
 
-- Issue type icon, key, and summary (clickable to open in Jira)
-- Workflow status (color-coded badge driven by Atlassian's `statusCategory.colorName`)
-- Priority, assignee (with avatar or initials chip), due date
-- Configurable Jira custom fields (Sprint, Story Points, etc.) with smart formatters
-- Refresh and "Open in Jira" actions (44×44 touch targets)
-- Last-updated timestamp + offline indicator when running on stale cache
+- Issue type icon (top-left), bold summary, and a subtitle line
+  (`Epic AI-3855 in Jira Cloud` for child issues, `Story PROJ-1 in Jira
+  Cloud` for top-level)
+- Two-column field grid: **Status** (color-coded badge) and **Priority**
+- Full-width **Assignee** chip (avatar + name) and any **Custom fields**
+- Footer with last-fetched timestamp ("As of today at 11:37 AM" — click to
+  refresh) and a green **Open in Jira** call-to-action button
 
 **Target:** Atlassian Cloud only. Mobile-friendly (iOS + Android).
 

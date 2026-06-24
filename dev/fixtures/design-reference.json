@@ -1,0 +1,30 @@
+{
+  "kind": "issue",
+  "fetchedAt": 1756000000000,
+  "issue": {
+    "id": "20001",
+    "key": "MCP-2607",
+    "fields": {
+      "summary": "MCP (2607) - Move to Leader",
+      "issuetype": {
+        "name": "Story",
+        "iconUrl": ""
+      },
+      "parent": {
+        "key": "AI-3855",
+        "fields": {
+          "issuetype": { "name": "Epic" }
+        }
+      },
+      "status": {
+        "name": "In Progress",
+        "statusCategory": { "key": "indeterminate", "colorName": "blue-gray", "name": "In Progress" }
+      },
+      "priority": { "name": "3-Medium (potential to escalate)" },
+      "assignee": {
+        "accountId": "rrk",
+        "displayName": "Rahul Ramakrishna"
+      }
+    }
+  }
+}

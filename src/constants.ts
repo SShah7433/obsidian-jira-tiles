@@ -71,6 +71,7 @@ export const DEFAULT_ISSUE_FIELDS = [
   "duedate",
   "assignee",
   "issuetype",
+  "parent",
 ] as const;
 
 /* -------------------------------------------------------------------------- */

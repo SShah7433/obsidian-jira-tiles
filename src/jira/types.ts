@@ -101,6 +101,16 @@ export interface JiraIssueFields {
   duedate?: string | null;
   assignee?: JiraUser | null;
   reporter?: JiraUser | null;
+  /** Parent issue (for sub-tasks, epic links, etc.) — used in tile subtitle. */
+  parent?: {
+    id?: string;
+    key?: string;
+    fields?: {
+      summary?: string;
+      issuetype?: JiraIssueType;
+      status?: JiraStatus;
+    };
+  };
   /** Anything not enumerated above — typically `customfield_*`. */
   [k: string]: unknown;
 }

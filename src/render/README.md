@@ -39,15 +39,22 @@ Tile renderer + supporting modules.
 
 ## Render states
 
-- **Loading** — shimmer skeleton while the first fetch is in flight.
-- **Loaded** — header (type, key, summary, refresh + open buttons), meta row
-  (status, priority, due date, assignee), custom fields grid, footer
-  (last-updated, optional "cached" / "stale" label).
-- **Stale** — same layout as Loaded but with an `⚠ stale` footer badge when
-  the cache returned data because a fresh fetch failed.
-- **Error** — short message + retry button + plain "Open in Jira" link so the
-  user is never stuck.
+- **Loading** — shimmer skeleton for the icon + summary + subtitle while
+  the first fetch is in flight.
+- **Loaded** — header (issue type icon, bold summary, subtitle line like
+  "Epic AI-3855 in Jira Cloud"), Status/Priority grid (two columns at
+  desktop widths, single column on phones), full-width Assignee chip,
+  optional custom-field cells, footer with click-to-refresh timestamp and
+  green **Open in Jira** CTA.
+- **Stale** — same layout as Loaded but the timestamp gets a `⚠` prefix
+  and warning color when the cache returned data because a fresh fetch
+  failed.
+- **Error** — short message + retry button + plain "Open in Jira" link so
+  the user is never stuck.
 - **Invalid block** — rendered when `parseBlock` throws.
+
+The subtitle prefers the parent issue when present (e.g. an Epic link),
+falling back to the issue's own type+key for top-level issues.
 
 ## Testing
 

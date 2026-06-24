@@ -12,7 +12,7 @@
       },
       "status": {
         "name": "In Progress",
-        "statusCategory": { "key": "indeterminate", "colorName": "yellow", "name": "In Progress" }
+        "statusCategory": { "key": "indeterminate", "colorName": "blue-gray", "name": "In Progress" }
       },
       "priority": { "name": "High" },
       "duedate": "2026-07-15",
