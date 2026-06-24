@@ -1,0 +1,276 @@
+/* ==========================================================================
+   Jira Tiles — plugin styles
+   --------------------------------------------------------------------------
+   All selectors are scoped under `.jira-tile` or `.jira-tiles-*` so the plugin
+   plays nicely with other Obsidian themes/plugins.
+
+   Colors and typography use Obsidian's CSS custom properties so the tile
+   automatically respects the active light/dark theme.
+
+   The "mobile-first" layout uses flexbox + flex-wrap with min-width: 0 so
+   tiles gracefully reflow at 320px. Larger viewports get a denser meta row.
+   ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* Settings tab                                                               */
+/* -------------------------------------------------------------------------- */
+
+.jira-tiles-warning {
+  border: 1px solid var(--background-modifier-error-rgb, #c33);
+  border-left: 4px solid var(--text-error, #c33);
+  background: var(--background-secondary);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.jira-tiles-warning--ack {
+  border-left-color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.jira-tiles-warning p {
+  margin: 0.25rem 0 0.75rem;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+.jira-tiles-customfields {
+  margin-top: 0.5rem;
+}
+
+.jira-tiles-customfield-row .setting-item-control {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tile container                                                             */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile-container {
+  margin: 0.5rem 0;
+}
+
+.jira-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  min-width: 0; /* allow flex children to shrink below their intrinsic size */
+}
+
+/* Header: type icon, key, summary, action buttons */
+
+.jira-tile-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.jira-tile-issuetype {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.jira-tile-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.jira-tile-key:hover {
+  text-decoration: underline;
+}
+
+.jira-tile-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text-normal);
+  word-break: break-word;
+}
+
+.jira-tile-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.jira-tile-actions button {
+  /* 44x44 touch targets per Apple HIG, while staying visually compact. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.jira-tile-actions button:hover,
+.jira-tile-actions button:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border);
+}
+
+/* Meta row: status, priority, due date, assignee */
+
+.jira-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.jira-tile-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.jira-tile-status--blue-gray { background: #dfe1e6; color: #42526e; }
+.jira-tile-status--yellow    { background: #fff0b3; color: #974f0c; }
+.jira-tile-status--green     { background: #abf5d1; color: #064; }
+.jira-tile-status--brown     { background: #ffd2b3; color: #793e0d; }
+.jira-tile-status--warm-red  { background: #ffbdad; color: #bf2600; }
+.jira-tile-status--medium-gray {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.theme-dark .jira-tile-status--blue-gray { background: #2a2f38; color: #b6c2cf; }
+.theme-dark .jira-tile-status--yellow    { background: #533f04; color: #f5cd47; }
+.theme-dark .jira-tile-status--green     { background: #164b35; color: #7ee2b8; }
+.theme-dark .jira-tile-status--brown     { background: #5d2c0c; color: #fec7a4; }
+.theme-dark .jira-tile-status--warm-red  { background: #5d1f1a; color: #ff9c8f; }
+
+.jira-tile-priority,
+.jira-tile-duedate,
+.jira-tile-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted);
+}
+
+.jira-tile-assignee-avatar {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* Custom fields section */
+
+.jira-tile-customfields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.25rem;
+  font-size: var(--font-ui-smaller);
+}
+
+.jira-tile-customfield-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.jira-tile-customfield-value {
+  color: var(--text-normal);
+  word-break: break-word;
+}
+
+.jira-tile-customfield-value code {
+  font-size: 0.85em;
+  background: var(--background-modifier-border);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+}
+
+/* Footer: last-updated + offline indicator */
+
+.jira-tile-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.jira-tile-offline-badge {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  color: var(--text-warning, #b45f06);
+}
+
+/* -------------------------------------------------------------------------- */
+/* States: loading / error                                                    */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile--loading .jira-tile-summary,
+.jira-tile--loading .jira-tile-key,
+.jira-tile--loading .jira-tile-meta {
+  background: linear-gradient(
+    90deg,
+    var(--background-modifier-border) 25%,
+    var(--background-modifier-hover) 50%,
+    var(--background-modifier-border) 75%
+  );
+  background-size: 200% 100%;
+  color: transparent;
+  border-radius: 4px;
+  animation: jira-tile-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes jira-tile-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.jira-tile--error {
+  border-color: var(--text-error);
+}
+
+.jira-tile-error-message {
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive: phone-width tweaks                                             */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .jira-tile-header {
+    flex-wrap: wrap;
+  }
+  .jira-tile-actions {
+    margin-left: auto;
+  }
+  .jira-tile-customfields {
+    grid-template-columns: 1fr;
+  }
+  .jira-tile-customfield-label {
+    margin-top: 0.25rem;
+  }
+}

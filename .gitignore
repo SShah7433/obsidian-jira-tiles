@@ -1,0 +1,28 @@
+# Build output
+main.js
+main.js.map
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Plugin runtime data (contains tokens — never commit)
+data.json
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+coverage/
+.nyc_output/
+
+# Dev preview build output
+dev/dist/

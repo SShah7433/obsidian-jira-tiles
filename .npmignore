@@ -1,0 +1,17 @@
+# Only ship Obsidian plugin artifacts.
+# Per the Community Plugin guidelines, the published package only needs
+# main.js, manifest.json, styles.css, and versions.json.
+
+src/
+dev/
+tests/
+node_modules/
+*.ts
+!*.d.ts
+tsconfig.json
+esbuild.config.mjs
+jest.config.cjs
+.gitignore
+.npmignore
+coverage/
+*.log
