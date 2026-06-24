@@ -1,0 +1,46 @@
+{
+  "kind": "issue",
+  "fetchedAt": 1756000000000,
+  "customFields": [
+    { "id": "customfield_10020", "label": "Sprint" },
+    { "id": "customfield_10016", "label": "Story Points" },
+    { "id": "customfield_10100", "label": "Team" },
+    { "id": "customfield_10200", "label": "QA Owner" },
+    { "id": "customfield_10300", "label": "Targets" },
+    { "id": "customfield_10400", "label": "Released" }
+  ],
+  "issue": {
+    "id": "10003",
+    "key": "ENG-512",
+    "fields": {
+      "summary": "Migrate authentication to OAuth 2.0 with PKCE",
+      "issuetype": { "name": "Epic" },
+      "status": {
+        "name": "Done",
+        "statusCategory": { "key": "done", "colorName": "green", "name": "Done" }
+      },
+      "priority": { "name": "Highest" },
+      "duedate": "2026-08-30",
+      "assignee": {
+        "displayName": "Alex Rivera",
+        "accountId": "u-2"
+      },
+      "customfield_10020": [
+        { "id": 12, "name": "Sprint 41", "state": "closed" },
+        { "id": 13, "name": "Sprint 42", "state": "active" }
+      ],
+      "customfield_10016": 8,
+      "customfield_10100": { "id": "team-7", "value": "Platform" },
+      "customfield_10200": {
+        "displayName": "Priya Patel",
+        "accountId": "u-3"
+      },
+      "customfield_10300": [
+        { "value": "iOS" },
+        { "value": "Android" },
+        { "value": "Web" }
+      ],
+      "customfield_10400": "2026-08-30T14:23:00.000+0000"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jira Tiles — Dev Preview</title>
+    <link rel="stylesheet" href="./styles-dev.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="dev-toolbar">
+      <strong>Jira Tiles · dev preview</strong>
+      <label>
+        Fixture
+        <select id="fixture-select"></select>
+      </label>
+      <label>
+        Viewport
+        <select id="viewport-select">
+          <option value="full">Full width</option>
+          <option value="tablet">Tablet (768px)</option>
+          <option value="phone">Phone (360px)</option>
+        </select>
+      </label>
+      <label>
+        Theme
+        <select id="theme-select">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <span class="dev-toolbar-spacer"></span>
+      <small>Edit dev/fixtures/*.json — page reloads on save.</small>
+    </header>
+
+    <main id="preview-stage" class="dev-stage" data-width="full">
+      <div id="preview-root"></div>
+    </main>
+
+    <div id="dev-notices"></div>
+
+    <script src="./harness.js" defer></script>
+  </body>
+</html>

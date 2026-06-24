@@ -1,0 +1,15 @@
+{
+  "kind": "issue",
+  "fetchedAt": 1756000000000,
+  "issue": {
+    "id": "10002",
+    "key": "PROJ-2",
+    "fields": {
+      "summary": "Minimal data — only summary + status",
+      "status": {
+        "name": "To Do",
+        "statusCategory": { "key": "new", "colorName": "blue-gray", "name": "To Do" }
+      }
+    }
+  }
+}

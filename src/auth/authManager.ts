@@ -97,6 +97,21 @@ export class AuthManager {
   }
 
   /**
+   * Force a refresh regardless of expiry. Called by the Jira client after a
+   * 401 to recover from a token Atlassian considers invalid (e.g. revoked,
+   * scope changed, issued before a config change).
+   */
+  async forceRefresh(): Promise<void> {
+    const s = this.getSettings();
+    if (s.authMethod !== "oauth" || !s.oauth) return;
+    if (!this.refreshFn) {
+      throw new OAuthNotConfiguredError();
+    }
+    await this.refreshFn(s);
+    await this.persistSettings();
+  }
+
+  /**
    * Resolve a snapshot AuthContext for the next request.
    * Throws if no auth is configured.
    */

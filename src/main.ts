@@ -2,16 +2,11 @@
  * JiraTilesPlugin — Obsidian plugin entry point.
  *
  * Lifecycle:
- *   onload   - load settings, instantiate AuthManager, register settings tab.
- *              Phase 2 will also register the ```jira code block processor.
+ *   onload   - load settings, instantiate AuthManager + Jira client + cache,
+ *              register settings tab and the ```jira code block processor.
  *              Phase 3 will register the obsidian:// protocol handler.
  *              Phase 5 will register command-palette commands.
- *   onunload - clean up registered handlers (Obsidian auto-deregisters most,
- *              but we explicitly clear caches to free memory).
- *
- * The plugin owns the canonical PluginSettings object and exposes it to
- * subsystems via plain references — they read it directly and call
- * `plugin.saveSettings()` to persist.
+ *   onunload - Obsidian deregisters our handlers; we explicitly clear caches.
  */
 
 import { Plugin } from "obsidian";
@@ -19,12 +14,15 @@ import { JiraTilesSettingTab } from "./settings/SettingsTab";
 import { mergeWithDefaults, DEFAULT_SETTINGS } from "./settings/defaults";
 import type { PluginSettings } from "./settings/types";
 import { AuthManager } from "./auth/authManager";
+import { JiraClient } from "./jira/client";
+import { IssueCache } from "./cache/issueCache";
+import { buildCodeBlockProcessor } from "./render/codeBlockProcessor";
 
 export default class JiraTilesPlugin extends Plugin {
-  /** Loaded settings (always populated after onload). */
   settings: PluginSettings = { ...DEFAULT_SETTINGS };
-  /** Resolves auth context for outgoing Jira REST calls. */
   authManager!: AuthManager;
+  client!: JiraClient;
+  cache!: IssueCache;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -36,39 +34,43 @@ export default class JiraTilesPlugin extends Plugin {
       null,
     );
 
+    this.client = new JiraClient({ authManager: this.authManager });
+    this.cache = new IssueCache(() => this.settings.cacheTtlMinutes * 60_000);
+
     this.addSettingTab(new JiraTilesSettingTab(this.app, this));
 
-    // Phase 2 will register the Markdown code block processor here.
+    this.registerMarkdownCodeBlockProcessor(
+      "jira",
+      buildCodeBlockProcessor({
+        client: this.client,
+        cache: this.cache,
+        getSettings: () => this.settings,
+        openUrl: (url) => window.open(url, "_blank", "noopener"),
+      }),
+    );
+
     // Phase 3 will register the obsidian:// protocol handler here.
     // Phase 5 will register commands here.
   }
 
   async onunload(): Promise<void> {
-    // Obsidian auto-removes the settings tab and other registered handlers.
-    // Caches added in Phase 2 will be explicitly cleared here.
+    this.cache?.invalidate();
   }
 
-  /**
-   * Load settings from disk, merging with defaults so newly added fields are
-   * populated for users upgrading from an older version.
-   */
   async loadSettings(): Promise<void> {
     const raw = (await this.loadData()) as Partial<PluginSettings> | null;
     this.settings = mergeWithDefaults(raw);
   }
 
-  /** Persist current settings to data.json. */
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
   }
 
   /**
-   * Called by the SettingsTab when the active auth method changes (e.g. user
-   * clicks "Use API token" or "Disconnect"). Phase 2 will invalidate the issue
-   * cache here; for now it's a no-op hook so the SettingsTab can call it
-   * without conditional logic.
+   * Called by the SettingsTab when the active auth method changes. Drops the
+   * cache so we don't render data fetched under the previous identity.
    */
   onAuthChanged(): void {
-    // Hook for downstream phases.
+    this.cache?.invalidate();
   }
 }

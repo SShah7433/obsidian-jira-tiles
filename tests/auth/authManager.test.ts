@@ -179,3 +179,36 @@ describe("AuthManager.ensureFresh", () => {
     await expect(mgr.ensureFresh()).rejects.toThrow(OAuthNotConfiguredError);
   });
 });
+
+describe("AuthManager.forceRefresh", () => {
+  it("always invokes refreshFn for OAuth, regardless of expiry", async () => {
+    let refreshed = 0;
+    const s = makeSettings({
+      authMethod: "oauth",
+      oauth: {
+        accessToken: "a",
+        refreshToken: "r",
+        expiresAt: Date.now() + 60 * 60 * 1000,
+        cloudId: "cid",
+        siteUrl: "https://x.atlassian.net",
+        siteName: "X",
+      },
+    });
+    const mgr = new AuthManager(
+      () => s,
+      async () => {},
+      async () => { refreshed++; },
+    );
+    await mgr.forceRefresh();
+    expect(refreshed).toBe(1);
+  });
+
+  it("is a no-op for API token auth", async () => {
+    const s = makeSettings({
+      authMethod: "apiToken",
+      apiToken: { siteUrl: "https://x.atlassian.net", email: "a@b.com", token: "t" },
+    });
+    const mgr = new AuthManager(() => s, async () => {});
+    await expect(mgr.forceRefresh()).resolves.toBeUndefined();
+  });
+});

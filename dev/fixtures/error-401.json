@@ -1,0 +1,5 @@
+{
+  "kind": "error",
+  "key": "PROJ-401",
+  "message": "Authentication failed. Check your credentials in Jira Tiles settings."
+}
