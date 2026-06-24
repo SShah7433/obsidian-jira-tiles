@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   showDueDate: true,
   showIssueType: true,
   showIssueTypeField: true,
+  showFixVersions: true,
   cacheTtlMinutes: DEFAULT_CACHE_TTL_MINUTES,
   customFields: [],
   storageWarningAcknowledged: false,

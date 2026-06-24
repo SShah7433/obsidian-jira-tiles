@@ -143,6 +143,7 @@ describe("renderInto — happy path", () => {
           showDueDate: false,
           showIssueType: false,
           showIssueTypeField: false,
+          showFixVersions: false,
           customFields: [],
         },
       }),
@@ -230,6 +231,52 @@ describe("renderInto — happy path", () => {
     );
     const chip = container.querySelector(".jira-tile-assignee-chip--unassigned");
     expect(chip?.textContent).toBe("Unassigned");
+  });
+
+  it("renders a Fix Versions cell with one chip per version", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1" },
+      makeCtx({
+        fetch: async () => ({
+          data: fakeIssue({
+            fields: {
+              summary: "x",
+              fixVersions: [
+                { id: "1", name: "v1.0", released: true },
+                { id: "2", name: "v2.0", released: false },
+              ],
+            },
+          }),
+          fetchedAt: Date.now(),
+          fromCache: false,
+        }),
+      }),
+    );
+    const cell = container.querySelector(".jira-tile-cell--fixversions");
+    expect(cell).not.toBeNull();
+    expect(cell?.querySelector(".jira-tile-field-label")?.textContent).toBe(
+      "Fix Versions",
+    );
+    const chips = cell?.querySelectorAll(".jira-tile-version-chip") ?? [];
+    expect(chips.length).toBe(2);
+  });
+
+  it("omits the Fix Versions cell entirely when the array is empty/missing", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1" },
+      makeCtx({
+        fetch: async () => ({
+          data: fakeIssue({ fields: { summary: "x", fixVersions: [] } }),
+          fetchedAt: Date.now(),
+          fromCache: false,
+        }),
+      }),
+    );
+    expect(container.querySelector(".jira-tile-cell--fixversions")).toBeNull();
   });
 });
 

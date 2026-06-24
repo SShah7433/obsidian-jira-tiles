@@ -72,6 +72,7 @@ export const DEFAULT_ISSUE_FIELDS = [
   "assignee",
   "issuetype",
   "parent",
+  "fixVersions",
 ] as const;
 
 /* -------------------------------------------------------------------------- */

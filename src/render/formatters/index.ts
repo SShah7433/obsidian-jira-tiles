@@ -10,26 +10,38 @@
  * innerHTML) to avoid XSS regardless of what Jira returns.
  */
 
-import type { JiraOption, JiraSprint, JiraUser } from "../../jira/types";
+import type {
+  JiraOption,
+  JiraSprint,
+  JiraUser,
+  JiraVersion,
+} from "../../jira/types";
 import { formatUser } from "./user";
 import { formatSprintArray } from "./sprint";
 import { formatOption } from "./option";
 import { formatDate } from "./date";
 import { formatNumber } from "./number";
 import { formatFallback } from "./fallback";
+import { formatVersionArray, looksLikeVersionArray } from "./version";
 
 /**
  * Detect the shape of `value` and render with the best-matching formatter.
  *
  * Priority order:
  *   1. null / undefined         -> em-dash
- *   2. JiraSprint[]             -> formatted sprint list
- *   3. JiraUser (single object) -> avatar + name
- *   4. JiraOption (object with .value) -> text
- *   5. ISO date / datetime string      -> localized
- *   6. number / boolean                -> formatted
- *   7. Plain string                    -> string
- *   8. Anything else                   -> JSON fallback
+ *   2. JiraSprint[]             -> formatted sprint list (state-aware)
+ *   3. JiraVersion[]            -> released/unreleased pill chips
+ *   4. JiraOption[] / JiraUser[]-> comma-joined text or avatar list
+ *   5. JiraUser (single object) -> avatar + name
+ *   6. JiraOption (object with .value) -> text
+ *   7. ISO date / datetime string      -> localized
+ *   8. number / boolean                -> formatted
+ *   9. Plain string                    -> string
+ *  10. Anything else                   -> JSON fallback
+ *
+ * Sprint-array detection runs before version-array so that fields containing
+ * both `state` (sprint) and `released` (version) — should that ever exist —
+ * still go to the more specific sprint formatter.
  */
 export function formatCustomField(value: unknown): DocumentFragment {
   const frag = document.createDocumentFragment();
@@ -41,6 +53,9 @@ export function formatCustomField(value: unknown): DocumentFragment {
   if (Array.isArray(value)) {
     if (looksLikeSprintArray(value)) {
       return formatSprintArray(value as JiraSprint[]);
+    }
+    if (looksLikeVersionArray(value)) {
+      return formatVersionArray(value as JiraVersion[]);
     }
     if (value.length === 0) {
       frag.append(document.createTextNode("—"));
@@ -118,6 +133,11 @@ export function looksLikeOptionArray(arr: unknown[]): boolean {
   );
 }
 
+/**
+ * Sprint detection requires the `state` field — without it we can't tell the
+ * difference between a sprint and a version (both have id+name+self).
+ * Versions never have `state`, so this disambiguates.
+ */
 export function looksLikeSprintArray(arr: unknown[]): boolean {
   return (
     arr.length > 0 &&
@@ -125,9 +145,8 @@ export function looksLikeSprintArray(arr: unknown[]): boolean {
       (x) =>
         x &&
         typeof x === "object" &&
-        ("state" in (x as object) || "name" in (x as object)) &&
-        // Sprints have at minimum a name and an id-shaped property.
-        typeof (x as JiraSprint).name === "string",
+        typeof (x as JiraSprint).name === "string" &&
+        typeof (x as JiraSprint).state === "string",
     )
   );
 }

@@ -82,6 +82,24 @@ export interface JiraOption {
 }
 
 /**
+ * Project version (used for `fixVersions` and `versions`/affectsVersion).
+ *
+ * `released: true` means the version has been shipped; `archived: true` means
+ * it's been archived (still readable, but generally hidden in UIs). The
+ * renderer uses these flags to render different visual treatments.
+ */
+export interface JiraVersion {
+  id?: string;
+  name?: string;
+  description?: string;
+  /** ISO date string (yyyy-mm-dd) when the version was/will be released. */
+  releaseDate?: string;
+  released?: boolean;
+  archived?: boolean;
+  self?: string;
+}
+
+/**
  * The JSON returned for a single issue. `fields` is intentionally `unknown`-typed
  * for custom fields because their shape varies wildly; smart formatters narrow
  * the type at render time.
@@ -101,6 +119,10 @@ export interface JiraIssueFields {
   duedate?: string | null;
   assignee?: JiraUser | null;
   reporter?: JiraUser | null;
+  /** Project versions in which this issue is/will be fixed. Always an array. */
+  fixVersions?: JiraVersion[];
+  /** Project versions affected by this issue. Always an array. */
+  versions?: JiraVersion[];
   /** Parent issue (for sub-tasks, epic links, etc.) — used in tile subtitle. */
   parent?: {
     id?: string;

@@ -66,6 +66,8 @@ export interface PluginSettings {
   showIssueType: boolean;
   /** Show a labeled "Issue Type" field in the body grid (icon + name). */
   showIssueTypeField: boolean;
+  /** Show the "Fix Versions" labeled field with release-state chips. */
+  showFixVersions: boolean;
 
   /** Cache TTL in minutes; controls when tiles auto-refresh. */
   cacheTtlMinutes: number;

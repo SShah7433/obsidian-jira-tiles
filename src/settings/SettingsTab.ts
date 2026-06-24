@@ -332,6 +332,7 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         | "showDueDate"
         | "showIssueType"
         | "showIssueTypeField"
+        | "showFixVersions"
       >,
       string,
       string,
@@ -342,6 +343,7 @@ export class JiraTilesSettingTab extends PluginSettingTab {
       ["showPriority", "Show priority", "Display the issue's priority level (with icon)."],
       ["showAssignee", "Show assignee", "Display the assignee with avatar."],
       ["showDueDate", "Show due date", "Display the due date when set."],
+      ["showFixVersions", "Show fix versions", "Display the fix versions (release-state chips)."],
     ];
 
     for (const [key, name, desc] of toggles) {

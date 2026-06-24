@@ -51,6 +51,8 @@ export interface DisplayOptions {
   showIssueType: boolean;
   /** Show "Issue Type" as a labeled body grid cell. */
   showIssueTypeField: boolean;
+  /** Show "Fix Versions" as a labeled body grid cell. */
+  showFixVersions: boolean;
   customFields: CustomFieldConfig[];
 }
 
@@ -88,6 +90,7 @@ export function displayOptionsFromSettings(s: PluginSettings): DisplayOptions {
     showDueDate: s.showDueDate,
     showIssueType: s.showIssueType,
     showIssueTypeField: s.showIssueTypeField,
+    showFixVersions: s.showFixVersions,
     customFields: s.customFields.filter((f) => f.enabled && f.id),
   };
 }
@@ -370,6 +373,23 @@ function renderStandardFields(
         text: "Unassigned",
       });
     }
+  }
+
+  // Fix versions: render each version as a release-state-aware chip. We
+  // skip the cell entirely when there are no versions (instead of showing
+  // an em-dash) since "no fix version" is the common case for new issues
+  // and a label-only cell adds noise.
+  if (
+    display.showFixVersions &&
+    Array.isArray(issue.fields.fixVersions) &&
+    issue.fields.fixVersions.length > 0
+  ) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--fixversions",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Fix Versions" });
+    const value = cell.createDiv({ cls: "jira-tile-fixversions-value" });
+    value.appendChild(formatCustomField(issue.fields.fixVersions));
   }
 }
 

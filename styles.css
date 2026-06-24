@@ -402,6 +402,55 @@
   color: var(--text-muted);
 }
 
+/* -------------------------------------------------------------------------- */
+/* Fix-version chips                                                          */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile-fixversions-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.jira-tile-version-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Released versions get a filled green pill so they read as "shipped". */
+.jira-tile-version-chip--released {
+  background: #d3f5e0;
+  color: #064;
+  border-color: #abf5d1;
+}
+
+.jira-tile-version-chip--released::before {
+  content: "✓ ";
+  margin-right: 0.1rem;
+}
+
+.theme-dark .jira-tile-version-chip--released {
+  background: #164b35;
+  color: #7ee2b8;
+  border-color: #1f6f4d;
+}
+
+.jira-tile-version-chip--archived {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
 .jira-tile-assignee-chip img,
 .jira-tile-assignee-chip span.jira-tile-assignee-avatar {
   width: 1.5rem;
