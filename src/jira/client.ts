@@ -133,14 +133,14 @@ export class JiraClient {
    */
   private async send<T>(method: string, path: string, body?: unknown): Promise<T> {
     await this.deps.authManager.ensureFresh();
-    let ctx = this.deps.authManager.getContext();
+    let ctx = await this.deps.authManager.getContext();
 
     let res = await this.exec(method, ctx, path, body);
 
     if (res.status === 401 && ctx.refreshable) {
       // Force a refresh and retry once.
       await this.deps.authManager.forceRefresh();
-      ctx = this.deps.authManager.getContext();
+      ctx = await this.deps.authManager.getContext();
       res = await this.exec(method, ctx, path, body);
     }
 

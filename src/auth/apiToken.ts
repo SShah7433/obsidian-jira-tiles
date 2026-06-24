@@ -5,9 +5,10 @@
  * username is the user's account email and the password is the token they
  * generated at https://id.atlassian.com/manage-profile/security/api-tokens.
  *
- * This module is intentionally tiny — token validation and persistence happen
- * in the SettingsTab; the AuthManager just needs the request header and the
- * resolved base URL.
+ * The token value lives in Obsidian's SecretStorage (resolved at request
+ * time by the AuthManager). The Basic-auth header builder takes the email
+ * and the resolved token value — it does NOT touch settings, so it stays
+ * trivially testable.
  */
 
 import type { ApiTokenState } from "../settings/types";
@@ -19,8 +20,11 @@ import type { ApiTokenState } from "../settings/types";
  *   buildBasicAuthHeader({ email: "a@b.com", token: "xyz", siteUrl: "..." })
  *   // → "Basic YUBiLmNvbTp4eXo="
  */
-export function buildBasicAuthHeader(state: ApiTokenState): string {
-  const raw = `${state.email}:${state.token}`;
+export function buildBasicAuthHeader(creds: {
+  email: string;
+  token: string;
+}): string {
+  const raw = `${creds.email}:${creds.token}`;
   // btoa is available in browser (Obsidian) and jsdom (tests). Buffer fallback
   // exists for plain-Node contexts (esbuild config, scripts).
   const encoded =
@@ -53,7 +57,8 @@ export function normalizeSiteUrl(input: string): string {
 
 /**
  * Lightweight predicate to pre-validate an ApiTokenState before saving.
- * Does not call the network — that's `validateApiToken` in the AuthManager.
+ * Checks shape only — does NOT verify the named secret resolves; do that in
+ * the SettingsTab's activate handler via the SecretsService.
  */
 export function isApiTokenStateComplete(
   state: Partial<ApiTokenState> | undefined,
@@ -62,7 +67,7 @@ export function isApiTokenStateComplete(
   return Boolean(
     state.siteUrl &&
       state.email &&
-      state.token &&
+      state.tokenSecretName &&
       /^https:\/\/.+/i.test(state.siteUrl) &&
       /@/.test(state.email),
   );

@@ -16,6 +16,8 @@ import { mergeWithDefaults, DEFAULT_SETTINGS } from "./settings/defaults";
 import type { PluginSettings } from "./settings/types";
 import { AuthManager } from "./auth/authManager";
 import { OAuthFlow } from "./auth/tokenStore";
+import { SecretsService } from "./auth/secrets";
+import { migrateSecretsIfNeeded } from "./auth/migration";
 import { JiraClient } from "./jira/client";
 import { IssueCache } from "./cache/issueCache";
 import { buildCodeBlockProcessor } from "./render/codeBlockProcessor";
@@ -54,9 +56,25 @@ export default class JiraTilesPlugin extends Plugin {
   oauthFlow!: OAuthFlow;
   client!: JiraClient;
   cache!: IssueCache;
+  secrets!: SecretsService;
 
   async onload(): Promise<void> {
     await this.loadSettings();
+
+    this.secrets = new SecretsService(this.app);
+
+    // One-time migration: move any pre-SecretStorage plain-text tokens out
+    // of data.json and into SecretStorage. Idempotent — guarded by
+    // settings.secretsMigrationComplete. We run before constructing the
+    // auth-related machinery so it sees the post-migration shape.
+    const migration = await migrateSecretsIfNeeded(
+      this.settings,
+      this.secrets,
+      Notice,
+    );
+    if (migration.migrated) {
+      await this.saveSettings();
+    }
 
     // The AuthManager and OAuthFlow have a circular dependency (AuthManager
     // needs OAuthFlow.refresh; OAuthFlow needs JiraClient which needs
@@ -69,6 +87,7 @@ export default class JiraTilesPlugin extends Plugin {
       () => this.settings,
       () => this.saveSettings(),
       refreshTrampoline,
+      this.secrets,
     );
 
     this.client = new JiraClient({ authManager: this.authManager });
@@ -85,9 +104,9 @@ export default class JiraTilesPlugin extends Plugin {
         // Atlassian's token endpoint follows OAuth 2.0 RFC 6749 §4.1.3 and
         // accepts application/x-www-form-urlencoded bodies. (Their docs also
         // show a JSON example, but JSON bodies have empirically returned
-        // `access_denied: Unauthorized` 401s on some accounts as of late
-        // 2026 — possibly due to body parsing differences across their
-        // edge proxies. Form-encoded is the standard and works reliably.)
+        // `access_denied: Unauthorized` 401s on some accounts — possibly
+        // due to body parsing differences across their edge proxies.
+        // Form-encoded is the standard and works reliably.)
         const formBody = new URLSearchParams(body).toString();
         // Redact `code` and `code_verifier` (sensitive) before logging.
         const redactedKeys = new Set(["code", "code_verifier", "refresh_token"]);
@@ -138,6 +157,7 @@ export default class JiraTilesPlugin extends Plugin {
       getSettings: () => this.settings,
       saveSettings: () => this.saveSettings(),
       client: this.client,
+      secrets: this.secrets,
     });
 
     this.addSettingTab(new JiraTilesSettingTab(this.app, this));

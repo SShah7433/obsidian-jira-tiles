@@ -7,6 +7,27 @@ import { AuthManager } from "../../src/auth/authManager";
 import { JiraApiError } from "../../src/jira/types";
 import type { PluginSettings } from "../../src/settings/types";
 import { DEFAULT_SETTINGS } from "../../src/settings/defaults";
+import type { SecretsService } from "../../src/auth/secrets";
+
+/**
+ * Build a SecretsService stand-in that resolves a fixed map. The AuthManager
+ * only calls .get(), so the rest of the surface is unused.
+ */
+function fakeSecrets(values: Record<string, string>): SecretsService {
+  const memory = new Map(Object.entries(values));
+  return {
+    backend: "secret-storage",
+    isAvailable: true,
+    get: async (name: string | undefined | null) =>
+      name ? memory.get(name) ?? null : null,
+    set: async (n: string, v: string) => {
+      memory.set(n, v);
+    },
+    remove: async (n: string | undefined | null) => {
+      if (n) memory.delete(n);
+    },
+  } as unknown as SecretsService;
+}
 
 function makeAuthMgr(over: Partial<PluginSettings> = {}): AuthManager {
   let s: PluginSettings = {
@@ -15,14 +36,16 @@ function makeAuthMgr(over: Partial<PluginSettings> = {}): AuthManager {
     apiToken: {
       siteUrl: "https://acme.atlassian.net",
       email: "a@b.com",
-      token: "T",
+      tokenSecretName: "jira-tiles:api-token",
     },
     ...over,
   };
+  const secrets = fakeSecrets({ "jira-tiles:api-token": "T" });
   return new AuthManager(
     () => s,
     async () => {},
     null,
+    secrets,
   );
 }
 
@@ -89,28 +112,30 @@ describe("JiraClient.getIssue", () => {
   });
 
   it("retries once on 401 when auth is refreshable (OAuth)", async () => {
-    let s: PluginSettings = {
+    const s: PluginSettings = {
       ...DEFAULT_SETTINGS,
       authMethod: "oauth",
       oauth: {
-        accessToken: "TOK",
-        refreshToken: "RT",
+        accessTokenSecretName: "jira-tiles:oauth-access-token",
+        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
         expiresAt: Date.now() + 60 * 60_000,
         cloudId: "cid",
         siteUrl: "https://acme.atlassian.net",
         siteName: "Acme",
       },
     };
+    const secrets = fakeSecrets({
+      "jira-tiles:oauth-access-token": "TOK",
+    });
     const mgr = new AuthManager(
       () => s,
       async () => {},
       async () => {
-        // pretend we got a fresh token
-        s = {
-          ...s,
-          oauth: { ...s.oauth!, accessToken: "TOK2", expiresAt: Date.now() + 3600_000 },
-        };
+        // Pretend we got a fresh token: swap the secret value.
+        await secrets.set("jira-tiles:oauth-access-token", "TOK2");
+        s.oauth!.expiresAt = Date.now() + 3600_000;
       },
+      secrets,
     );
     let attempts = 0;
     const client = new JiraClient({
@@ -120,7 +145,7 @@ describe("JiraClient.getIssue", () => {
         if (attempts === 1) {
           return { status: 401, headers: {}, text: "", json: {} };
         }
-        // verify the second attempt uses the refreshed token
+        // Verify the second attempt uses the refreshed token.
         expect(p.headers?.Authorization).toBe("Bearer TOK2");
         return { status: 200, headers: {}, text: "{}", json: { key: "PROJ-1", fields: {} } };
       },
@@ -135,15 +160,23 @@ describe("JiraClient.getIssue", () => {
       ...DEFAULT_SETTINGS,
       authMethod: "oauth",
       oauth: {
-        accessToken: "TOK",
-        refreshToken: "RT",
+        accessTokenSecretName: "jira-tiles:oauth-access-token",
+        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
         expiresAt: Date.now() + 3600_000,
         cloudId: "abc-123",
         siteUrl: "https://acme.atlassian.net",
         siteName: "Acme",
       },
     };
-    const mgr = new AuthManager(() => s, async () => {}, async () => {});
+    const secrets = fakeSecrets({
+      "jira-tiles:oauth-access-token": "TOK",
+    });
+    const mgr = new AuthManager(
+      () => s,
+      async () => {},
+      async () => {},
+      secrets,
+    );
     let captured = "";
     const client = new JiraClient({
       authManager: mgr,

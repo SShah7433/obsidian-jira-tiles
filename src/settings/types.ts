@@ -2,8 +2,13 @@
  * Persisted plugin settings shape.
  *
  * The full PluginSettings object is what `plugin.loadData()` returns and what
- * `plugin.saveData()` writes to <vault>/.obsidian/plugins/<id>/data.json. Tokens
- * live here in plain text — see SECURITY.md / SettingsTab warning banner.
+ * `plugin.saveData()` writes to <vault>/.obsidian/plugins/<id>/data.json.
+ *
+ * Secrets (API tokens, OAuth access/refresh tokens) are NOT stored here — they
+ * are kept in Obsidian's `app.secretStorage` (added in Obsidian 1.5+). What
+ * lives here is the *name* (key) under which the secret is stored. The
+ * SecretsService in src/auth/secrets.ts resolves a name to its value at
+ * request time. This keeps the on-disk data.json free of credentials.
  */
 
 /** Authentication strategy currently active. */
@@ -11,11 +16,17 @@ export type AuthMethod = "oauth" | "apiToken" | "none";
 
 /** Persisted OAuth state after a successful 3LO + PKCE flow. */
 export interface OAuthState {
-  /** Bearer access token. Short-lived (~1h on Atlassian Cloud). */
-  accessToken: string;
-  /** Refresh token used to mint new access tokens (long-lived but rotatable). */
-  refreshToken: string;
-  /** Unix epoch (ms) at which `accessToken` expires. */
+  /**
+   * Name under which the access token is stored in SecretStorage.
+   * The value itself is NOT in data.json.
+   */
+  accessTokenSecretName: string;
+  /**
+   * Name under which the refresh token is stored in SecretStorage.
+   * The value itself is NOT in data.json.
+   */
+  refreshTokenSecretName: string;
+  /** Unix epoch (ms) at which the access token expires. */
   expiresAt: number;
   /** Atlassian Cloud site identifier resolved during setup. */
   cloudId: string;
@@ -31,17 +42,15 @@ export interface ApiTokenState {
   siteUrl: string;
   /** Atlassian account email associated with the token. */
   email: string;
-  /** Atlassian account API token (https://id.atlassian.com/manage-profile/security/api-tokens). */
-  token: string;
+  /**
+   * Name under which the API token is stored in SecretStorage.
+   * Users pick this via the SecretComponent in settings — multiple plugins
+   * can share the same secret name to reuse the same token.
+   */
+  tokenSecretName: string;
 }
 
-/**
- * One configured custom field that should be displayed on tiles.
- *
- * `id` is the raw Jira field id (e.g. `customfield_10020`). `label` is the
- * user-friendly name shown in the tile. `enabled` lets users keep multiple
- * configs around and toggle them without deleting.
- */
+/** One configured custom field that should be displayed on tiles. */
 export interface CustomFieldConfig {
   id: string;
   label: string;
@@ -76,8 +85,17 @@ export interface PluginSettings {
   customFields: CustomFieldConfig[];
 
   /**
-   * Whether to acknowledge the data.json plain-text storage warning. Once true,
-   * the warning banner collapses to a less prominent reminder.
+   * Whether the user has acknowledged the data.json storage notice.
+   * Now far less alarming — secrets live in SecretStorage; data.json carries
+   * site URLs, email, and feature toggles only.
    */
   storageWarningAcknowledged: boolean;
+
+  /**
+   * Indicates that we successfully migrated any pre-SecretStorage tokens
+   * (which lived as plain text in this object) into SecretStorage. Set on
+   * the migration's first successful run. Subsequent loads see this flag
+   * and skip the migration path.
+   */
+  secretsMigrationComplete?: boolean;
 }

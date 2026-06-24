@@ -87,23 +87,34 @@ For environments where OAuth isn't available, or for quick local testing.
 3. In plugin settings → *API token (fallback)*:
    - **Site URL**: `https://your-site.atlassian.net`
    - **Email**: the email associated with your Atlassian account
-   - **API token**: the token you just copied
+   - **API token**: the SecretComponent picker lets you select an existing
+     secret from Obsidian's SecretStorage or save a new one. The token
+     value is written into SecretStorage; the plugin's `data.json` only
+     records the *name* of the secret.
 4. Click **Use API token**.
 
 ## Security
 
-**Tokens are stored as plain text** in
-`<vault>/.obsidian/plugins/obsidian-jira-tiles/data.json`.
-Anyone with filesystem access to your vault can read them. The plugin shows
-a one-time security banner when first opened to acknowledge this.
+Tokens are stored in Obsidian's
+[SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage)
+(Obsidian 1.5+). The plugin's `data.json` carries only your site URL,
+email, feature toggles, and the *names* of the secrets — no credential
+values.
+
+If you're upgrading from a pre-0.2.0 build, the plugin migrates the
+plain-text tokens out of `data.json` on first load. Consider rotating
+your Atlassian API token afterwards to invalidate the previously-leaked
+value.
 
 Recommendations:
 
-- Prefer OAuth (PKCE) — refresh tokens are still plain text, but they're
-  more easily revoked from Atlassian's UI.
+- Prefer OAuth (PKCE) — refresh tokens can be revoked from Atlassian's UI.
 - Rotate API tokens regularly.
-- Avoid syncing `data.json` to untrusted cloud locations. Most Obsidian Sync
-  / iCloud / Dropbox configurations include the plugin folder by default.
+- Update Obsidian to 1.5 or newer if you see the "secret storage
+  unavailable" warning in settings — without that API the plugin can only
+  hold tokens in memory.
+
+See [SECURITY.md](./SECURITY.md) for the full threat model.
 
 ## Usage
 

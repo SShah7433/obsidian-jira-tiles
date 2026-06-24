@@ -7,6 +7,10 @@
  * fill all three fields, then click "Use API token", and get told the
  * fields were missing. This test exercises the read-modify-write pattern
  * the SettingsTab now uses (read current, merge patch, write back).
+ *
+ * After the SecretStorage migration, `tokenSecretName` (a *name*, not the
+ * value) replaces the legacy `token` field. The merging contract is
+ * unchanged.
  */
 
 import { isApiTokenStateComplete } from "../../src/auth/apiToken";
@@ -22,7 +26,11 @@ function updateApiToken(
   settings: PluginSettings,
   patch: Partial<ApiTokenState>,
 ): void {
-  const current = settings.apiToken ?? { siteUrl: "", email: "", token: "" };
+  const current: ApiTokenState = settings.apiToken ?? {
+    siteUrl: "",
+    email: "",
+    tokenSecretName: "",
+  };
   settings.apiToken = { ...current, ...patch };
 }
 
@@ -34,19 +42,19 @@ describe("API token field merging (SettingsTab onChange behavior)", () => {
     expect(s.apiToken).toEqual({
       siteUrl: "https://acme.atlassian.net",
       email: "alice@example.com",
-      token: "",
+      tokenSecretName: "",
     });
   });
 
   it("preserves all fields when the user types in any order (email -> token -> siteUrl)", () => {
     const s: PluginSettings = { ...DEFAULT_SETTINGS };
     updateApiToken(s, { email: "alice@example.com" });
-    updateApiToken(s, { token: "ATATT-abc" });
+    updateApiToken(s, { tokenSecretName: "jira-tiles:api-token" });
     updateApiToken(s, { siteUrl: "https://acme.atlassian.net" });
     expect(s.apiToken).toEqual({
       siteUrl: "https://acme.atlassian.net",
       email: "alice@example.com",
-      token: "ATATT-abc",
+      tokenSecretName: "jira-tiles:api-token",
     });
     expect(isApiTokenStateComplete(s.apiToken)).toBe(true);
   });
@@ -56,13 +64,13 @@ describe("API token field merging (SettingsTab onChange behavior)", () => {
     updateApiToken(s, {
       siteUrl: "https://acme.atlassian.net",
       email: "alice@example.com",
-      token: "ATATT-abc",
+      tokenSecretName: "jira-tiles:api-token",
     });
-    updateApiToken(s, { token: "ATATT-new" });
+    updateApiToken(s, { tokenSecretName: "user-named-secret" });
     expect(s.apiToken).toEqual({
       siteUrl: "https://acme.atlassian.net",
       email: "alice@example.com",
-      token: "ATATT-new",
+      tokenSecretName: "user-named-secret",
     });
   });
 

@@ -11,7 +11,6 @@ import {
 describe("buildBasicAuthHeader", () => {
   it("base64-encodes email:token in a Basic header", () => {
     const header = buildBasicAuthHeader({
-      siteUrl: "https://acme.atlassian.net",
       email: "alice@example.com",
       token: "supersecret",
     });
@@ -20,7 +19,6 @@ describe("buildBasicAuthHeader", () => {
 
   it("handles unicode in email/token", () => {
     const header = buildBasicAuthHeader({
-      siteUrl: "https://acme.atlassian.net",
       email: "üser@example.com",
       token: "tøken",
     });
@@ -69,7 +67,7 @@ describe("isApiTokenStateComplete", () => {
   const ok = {
     siteUrl: "https://acme.atlassian.net",
     email: "alice@example.com",
-    token: "x",
+    tokenSecretName: "jira-tiles:api-token",
   };
 
   it("returns true for fully populated state", () => {
@@ -81,7 +79,7 @@ describe("isApiTokenStateComplete", () => {
     expect(isApiTokenStateComplete({})).toBe(false);
     expect(isApiTokenStateComplete({ ...ok, siteUrl: "" })).toBe(false);
     expect(isApiTokenStateComplete({ ...ok, email: "" })).toBe(false);
-    expect(isApiTokenStateComplete({ ...ok, token: "" })).toBe(false);
+    expect(isApiTokenStateComplete({ ...ok, tokenSecretName: "" })).toBe(false);
   });
 
   it("rejects non-https site URLs", () => {

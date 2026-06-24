@@ -26,7 +26,11 @@ describe("buildIssueUrl", () => {
     const s = {
       ...DEFAULT_SETTINGS,
       authMethod: "apiToken" as const,
-      apiToken: { siteUrl: "https://acme.atlassian.net", email: "a@b.com", token: "x" },
+      apiToken: {
+        siteUrl: "https://acme.atlassian.net",
+        email: "a@b.com",
+        tokenSecretName: "jira-tiles:api-token",
+      },
     };
     expect(buildIssueUrl("PROJ-1", s)).toBe(
       "https://acme.atlassian.net/browse/PROJ-1",
@@ -38,8 +42,8 @@ describe("buildIssueUrl", () => {
       ...DEFAULT_SETTINGS,
       authMethod: "oauth" as const,
       oauth: {
-        accessToken: "T",
-        refreshToken: "R",
+        accessTokenSecretName: "jira-tiles:oauth-access-token",
+        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
         expiresAt: Date.now() + 3600_000,
         cloudId: "cid",
         siteUrl: "https://acme.atlassian.net",
@@ -59,7 +63,11 @@ describe("buildIssueUrl", () => {
     const s = {
       ...DEFAULT_SETTINGS,
       authMethod: "apiToken" as const,
-      apiToken: { siteUrl: "https://x.atlassian.net", email: "a@b.com", token: "x" },
+      apiToken: {
+        siteUrl: "https://x.atlassian.net",
+        email: "a@b.com",
+        tokenSecretName: "jira-tiles:api-token",
+      },
     };
     expect(buildIssueUrl("WEIRD/KEY", s)).toBe(
       "https://x.atlassian.net/browse/WEIRD%2FKEY",
@@ -122,7 +130,7 @@ describe("buildCodeBlockProcessor", () => {
         apiToken: {
           siteUrl: "https://example.atlassian.net",
           email: "a@b.com",
-          token: "x",
+          tokenSecretName: "jira-tiles:api-token",
         },
       }),
     });
@@ -155,7 +163,7 @@ describe("buildCodeBlockProcessor", () => {
         apiToken: {
           siteUrl: "https://example.atlassian.net",
           email: "a@b.com",
-          token: "x",
+          tokenSecretName: "jira-tiles:api-token",
         },
       }),
     });

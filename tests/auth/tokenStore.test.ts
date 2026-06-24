@@ -1,5 +1,9 @@
 /**
  * Tests for src/auth/tokenStore.ts — the OAuthFlow orchestrator.
+ *
+ * After the SecretStorage migration, tokens are written via SecretsService
+ * and only their *names* end up on PluginSettings.oauth. Each test injects
+ * a fake SecretsService backed by a Map.
  */
 
 import { OAuthFlow } from "../../src/auth/tokenStore";
@@ -7,6 +11,7 @@ import { DEFAULT_SETTINGS } from "../../src/settings/defaults";
 import type { PluginSettings } from "../../src/settings/types";
 import type { JiraClient } from "../../src/jira/client";
 import type { AccessibleResource } from "../../src/jira/types";
+import { INTERNAL_SECRETS, type SecretsService } from "../../src/auth/secrets";
 
 /** Wait until `predicate()` is true, polling on each microtask tick. */
 async function waitFor(predicate: () => boolean, attempts = 50): Promise<void> {
@@ -24,6 +29,7 @@ interface HarnessState {
   http: jest.Mock;
   client: JiraClient;
   flow: OAuthFlow;
+  secretsMap: Map<string, string>;
 }
 
 function makeHarness(opts?: {
@@ -49,17 +55,32 @@ function makeHarness(opts?: {
     getAccessibleResources: jest.fn(async () => sites),
   } as unknown as JiraClient;
 
+  const secretsMap = new Map<string, string>();
+  const secrets: SecretsService = {
+    backend: "secret-storage",
+    isAvailable: true,
+    get: async (n: string | undefined | null) =>
+      n ? secretsMap.get(n) ?? null : null,
+    set: async (n: string, v: string) => {
+      secretsMap.set(n, v);
+    },
+    remove: async (n: string | undefined | null) => {
+      if (n) secretsMap.delete(n);
+    },
+  } as unknown as SecretsService;
+
   const flow = new OAuthFlow({
     openExternal: (url) => opened.push(url),
-    http: http,
+    http,
     getSettings: () => settings,
     saveSettings: async () => {
       saved.count++;
     },
     client,
+    secrets,
   });
 
-  return { settings, saved, opened, http, client, flow };
+  return { settings, saved, opened, http, client, flow, secretsMap };
 }
 
 describe("OAuthFlow.beginConnect", () => {
@@ -93,7 +114,7 @@ describe("OAuthFlow.handleCallback", () => {
     );
   });
 
-  it("on success: exchanges code, discovers cloudId, persists, resolves", async () => {
+  it("on success: exchanges code, stores tokens in SecretStorage, persists, resolves", async () => {
     const http = jest.fn(async () => ({
       status: 200,
       json: {
@@ -116,10 +137,16 @@ describe("OAuthFlow.handleCallback", () => {
     await h.flow.handleCallback({ state, code: "CODE" });
     const result = await beginP;
 
-    expect(result.accessToken).toBe("AT");
-    expect(result.refreshToken).toBe("RT");
+    // Settings carries names, not values.
+    expect(result.accessTokenSecretName).toBe(INTERNAL_SECRETS.oauthAccessToken);
+    expect(result.refreshTokenSecretName).toBe(INTERNAL_SECRETS.oauthRefreshToken);
     expect(result.cloudId).toBe("cloud-1");
     expect(result.siteUrl).toBe("https://acme.atlassian.net");
+
+    // Actual values landed in SecretStorage.
+    expect(h.secretsMap.get(INTERNAL_SECRETS.oauthAccessToken)).toBe("AT");
+    expect(h.secretsMap.get(INTERNAL_SECRETS.oauthRefreshToken)).toBe("RT");
+
     expect(h.saved.count).toBeGreaterThanOrEqual(1);
     expect(h.settings.authMethod).toBe("oauth");
     expect(h.settings.oauth?.cloudId).toBe("cloud-1");
@@ -171,7 +198,7 @@ describe("OAuthFlow.handleCallback", () => {
 });
 
 describe("OAuthFlow.refresh", () => {
-  it("posts refresh grant and rotates the refresh_token in settings", async () => {
+  it("posts refresh grant, rotates the refresh_token in SecretStorage", async () => {
     const http = jest.fn(async () => ({
       status: 200,
       json: {
@@ -183,24 +210,45 @@ describe("OAuthFlow.refresh", () => {
       text: "",
     }));
     const h = makeHarness({ http });
+    // Seed an existing OAuth state and prior tokens in SecretStorage.
     h.settings.authMethod = "oauth";
     h.settings.oauth = {
-      accessToken: "AT1",
-      refreshToken: "RT1",
+      accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
+      refreshTokenSecretName: INTERNAL_SECRETS.oauthRefreshToken,
       expiresAt: Date.now() - 1000,
       cloudId: "c",
       siteUrl: "https://x.atlassian.net",
       siteName: "X",
     };
+    h.secretsMap.set(INTERNAL_SECRETS.oauthAccessToken, "AT1");
+    h.secretsMap.set(INTERNAL_SECRETS.oauthRefreshToken, "RT1");
+
     await h.flow.refresh(h.settings);
-    expect(h.settings.oauth.accessToken).toBe("AT2");
-    expect(h.settings.oauth.refreshToken).toBe("RT2");
+
+    // SecretStorage rotated.
+    expect(h.secretsMap.get(INTERNAL_SECRETS.oauthAccessToken)).toBe("AT2");
+    expect(h.secretsMap.get(INTERNAL_SECRETS.oauthRefreshToken)).toBe("RT2");
     expect(h.settings.oauth.expiresAt).toBeGreaterThan(Date.now());
   });
 
   it("throws when there's no oauth state to refresh", async () => {
     const h = makeHarness();
     await expect(h.flow.refresh(h.settings)).rejects.toThrow();
+  });
+
+  it("throws when the refresh token is missing from secret storage", async () => {
+    const h = makeHarness();
+    h.settings.authMethod = "oauth";
+    h.settings.oauth = {
+      accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
+      refreshTokenSecretName: INTERNAL_SECRETS.oauthRefreshToken,
+      expiresAt: Date.now() - 1000,
+      cloudId: "c",
+      siteUrl: "https://x.atlassian.net",
+      siteName: "X",
+    };
+    // Note: no entry written to h.secretsMap, so .get() returns null.
+    await expect(h.flow.refresh(h.settings)).rejects.toThrow(/missing/i);
   });
 });
 
@@ -221,8 +269,8 @@ describe("OAuthFlow.isAccessTokenNearExpiry", () => {
     expect(
       OAuthFlow.isAccessTokenNearExpiry(
         {
-          accessToken: "a",
-          refreshToken: "r",
+          accessTokenSecretName: "a",
+          refreshTokenSecretName: "r",
           expiresAt: now + 30_000, // 30s remaining
           cloudId: "c",
           siteUrl: "s",
@@ -238,8 +286,8 @@ describe("OAuthFlow.isAccessTokenNearExpiry", () => {
     expect(
       OAuthFlow.isAccessTokenNearExpiry(
         {
-          accessToken: "a",
-          refreshToken: "r",
+          accessTokenSecretName: "a",
+          refreshTokenSecretName: "r",
           expiresAt: now + 60 * 60_000,
           cloudId: "c",
           siteUrl: "s",

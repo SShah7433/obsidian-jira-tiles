@@ -37,6 +37,7 @@ if (typeof (globalThis as { crypto?: { subtle?: unknown } }).crypto === "undefin
 // surface via Jest's failure reporting; we only filter our own breadcrumbs.
 const originalLog = console.log;
 const originalError = console.error;
+const originalWarn = console.warn;
 console.log = ((...args: unknown[]) => {
   if (typeof args[0] === "string" && args[0].startsWith("[jira-tiles]")) return;
   originalLog(...(args as []));
@@ -45,6 +46,10 @@ console.error = ((...args: unknown[]) => {
   if (typeof args[0] === "string" && args[0].startsWith("[jira-tiles]")) return;
   originalError(...(args as []));
 }) as typeof console.error;
+console.warn = ((...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("[jira-tiles]")) return;
+  originalWarn(...(args as []));
+}) as typeof console.warn;
 
 declare global {
   interface HTMLElement {

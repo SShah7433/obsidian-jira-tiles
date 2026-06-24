@@ -9,13 +9,16 @@
  *
  * For OAuth, this is also where transparent token refresh happens.
  *
- * Phase 1 implements only the API-token branch. The OAuth branch is a stub
- * that throws `OAuthNotConfiguredError` until Phase 3 lands.
+ * Token *values* are stored in Obsidian's SecretStorage — this manager pulls
+ * them out by *name* (which is what lives in PluginSettings) at request time.
+ * That makes `getContext` async; the JiraClient already invokes it from an
+ * async context so the cost is just the awaits.
  */
 
 import { OAUTH_REFRESH_LEEWAY_SECONDS } from "../constants";
 import type { PluginSettings } from "../settings/types";
 import { buildBasicAuthHeader } from "./apiToken";
+import type { SecretsService } from "./secrets";
 
 /** Per-request auth context returned to the Jira client. */
 export interface AuthContext {
@@ -32,8 +35,11 @@ export interface AuthContext {
 
 /** Public Error subclass so callers can switch on `instanceof`. */
 export class AuthNotConfiguredError extends Error {
-  constructor() {
-    super("Jira authentication is not configured. Open plugin settings.");
+  constructor(message?: string) {
+    super(
+      message ??
+        "Jira authentication is not configured. Open plugin settings.",
+    );
     this.name = "AuthNotConfiguredError";
   }
 }
@@ -41,41 +47,44 @@ export class AuthNotConfiguredError extends Error {
 /** Thrown when OAuth is selected but PKCE flow has not yet succeeded. */
 export class OAuthNotConfiguredError extends AuthNotConfiguredError {
   constructor() {
-    super();
+    super("OAuth not yet supported in this build (Phase 3).");
     this.name = "OAuthNotConfiguredError";
-    this.message = "OAuth not yet supported in this build (Phase 3).";
   }
 }
 
 /**
  * Function the AuthManager calls when an OAuth access token is near expiry.
- * Lives in src/auth/tokenStore.ts in Phase 3; for now it's typed-only.
+ * Lives in src/auth/tokenStore.ts; for older code paths (tests) it's
+ * typed-only.
  */
 export type RefreshFn = (settings: PluginSettings) => Promise<void>;
 
-/**
- * Strategy resolver. Pure, side-effect-free, easy to unit test.
- *
- * Important: this returns the *current* AuthContext snapshot. If OAuth tokens
- * need refreshing, callers must invoke `ensureFresh()` first.
- */
 export class AuthManager {
   constructor(
     private readonly getSettings: () => PluginSettings,
     private readonly persistSettings: () => Promise<void>,
     private readonly refreshFn: RefreshFn | null = null,
+    private readonly secrets?: SecretsService,
   ) {}
 
   /**
-   * Determine whether any auth method is fully configured.
+   * Determine whether any auth method is fully configured. Note this checks
+   * names + structural fields only — it does NOT verify a secret exists in
+   * SecretStorage. Use `getContext()` to surface that as an error.
    */
   isConfigured(): boolean {
     const s = this.getSettings();
     if (s.authMethod === "apiToken") {
-      return !!(s.apiToken?.siteUrl && s.apiToken?.email && s.apiToken?.token);
+      return !!(
+        s.apiToken?.siteUrl &&
+        s.apiToken?.email &&
+        s.apiToken?.tokenSecretName
+      );
     }
     if (s.authMethod === "oauth") {
-      return !!(s.oauth?.accessToken && s.oauth?.cloudId);
+      return !!(
+        s.oauth?.accessTokenSecretName && s.oauth?.cloudId
+      );
     }
     return false;
   }
@@ -98,8 +107,7 @@ export class AuthManager {
 
   /**
    * Force a refresh regardless of expiry. Called by the Jira client after a
-   * 401 to recover from a token Atlassian considers invalid (e.g. revoked,
-   * scope changed, issued before a config change).
+   * 401 to recover from a token Atlassian considers invalid.
    */
   async forceRefresh(): Promise<void> {
     const s = this.getSettings();
@@ -112,29 +120,53 @@ export class AuthManager {
   }
 
   /**
-   * Resolve a snapshot AuthContext for the next request.
-   * Throws if no auth is configured.
+   * Resolve a snapshot AuthContext for the next request. Asynchronous because
+   * we now read the actual token value from SecretStorage at this point.
+   *
+   * Throws AuthNotConfiguredError when no auth method is configured *or* the
+   * referenced secret cannot be found (e.g. the user picked a name that was
+   * later removed from SecretStorage).
    */
-  getContext(): AuthContext {
+  async getContext(): Promise<AuthContext> {
     const s = this.getSettings();
 
     if (s.authMethod === "apiToken" && s.apiToken) {
+      const token = await this.readSecret(s.apiToken.tokenSecretName);
+      if (!token) {
+        throw new AuthNotConfiguredError(
+          `API token secret "${s.apiToken.tokenSecretName}" was not found in ` +
+            `Obsidian's secret storage. Re-select or re-enter it in settings.`,
+        );
+      }
       return {
-        authorizationHeader: buildBasicAuthHeader(s.apiToken),
+        authorizationHeader: buildBasicAuthHeader({
+          email: s.apiToken.email,
+          token,
+        }),
         baseUrl: s.apiToken.siteUrl,
         refreshable: false,
       };
     }
 
     if (s.authMethod === "oauth" && s.oauth) {
+      const accessToken = await this.readSecret(s.oauth.accessTokenSecretName);
+      if (!accessToken) {
+        throw new AuthNotConfiguredError(
+          "OAuth access token is missing from secret storage. Reconnect Jira in settings.",
+        );
+      }
       return {
-        authorizationHeader: `Bearer ${s.oauth.accessToken}`,
-        // OAuth uses the api.atlassian.com proxy with the cloudId in the path.
+        authorizationHeader: `Bearer ${accessToken}`,
         baseUrl: `https://api.atlassian.com/ex/jira/${s.oauth.cloudId}`,
         refreshable: !!this.refreshFn,
       };
     }
 
     throw new AuthNotConfiguredError();
+  }
+
+  private async readSecret(name: string | undefined): Promise<string | null> {
+    if (!this.secrets) return null;
+    return this.secrets.get(name);
   }
 }

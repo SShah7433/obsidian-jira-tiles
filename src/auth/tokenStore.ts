@@ -38,6 +38,7 @@ import {
   OAuthError,
   refreshAccessToken,
 } from "./oauth";
+import { INTERNAL_SECRETS, type SecretsService } from "./secrets";
 
 /** Pending authorization that hasn't yet seen its callback. */
 interface PendingAuth {
@@ -60,6 +61,8 @@ export interface OAuthFlowDeps {
   saveSettings: () => Promise<void>;
   /** Jira client used to discover the cloudId from the token. */
   client: JiraClient;
+  /** Secret store for access/refresh token values. */
+  secrets: SecretsService;
 }
 
 const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
@@ -171,9 +174,29 @@ export class OAuthFlow {
       // MVP: pin to the first site. Future: prompt when multiple.
       const site = sites[0];
 
+      // Stash the tokens in SecretStorage and keep only their *names* in
+      // PluginSettings.
+      const accessName = INTERNAL_SECRETS.oauthAccessToken;
+      const refreshName = tokens.refresh_token
+        ? INTERNAL_SECRETS.oauthRefreshToken
+        : "";
+      try {
+        await this.deps.secrets.set(accessName, tokens.access_token);
+        if (tokens.refresh_token) {
+          await this.deps.secrets.set(refreshName, tokens.refresh_token);
+        }
+      } catch (err) {
+        throw new OAuthError(
+          0,
+          `Could not save OAuth tokens to secret storage: ${
+            (err as Error).message ?? String(err)
+          }`,
+        );
+      }
+
       const next: OAuthState = {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        accessTokenSecretName: accessName,
+        refreshTokenSecretName: refreshName,
         expiresAt: Date.now() + tokens.expires_in * 1000,
         cloudId: site.id,
         siteUrl: site.url,
@@ -198,19 +221,42 @@ export class OAuthFlow {
   /**
    * Refresh the access token using the stored refresh_token. Wired into
    * AuthManager via `plugin.authManager = new AuthManager(..., flow.refresh)`.
+   *
+   * Reads the refresh token from SecretStorage (it's no longer in
+   * PluginSettings), exchanges it, and writes both rotated tokens back.
    */
   async refresh(_settings: PluginSettings): Promise<void> {
     const settings = this.deps.getSettings();
     if (!settings.oauth) throw new OAuthError(0, "No OAuth state to refresh.");
-    const tokens = await refreshAccessToken(
-      this.deps.http,
-      settings.oauth.refreshToken,
+    const refreshTokenValue = await this.deps.secrets.get(
+      settings.oauth.refreshTokenSecretName,
     );
+    if (!refreshTokenValue) {
+      throw new OAuthError(
+        0,
+        "Refresh token is missing from secret storage. Reconnect Jira in settings.",
+      );
+    }
+    const tokens = await refreshAccessToken(this.deps.http, refreshTokenValue);
+
+    // Atlassian rotates refresh tokens — overwrite the stored value with the
+    // new one so we don't reuse the now-invalidated one on the next refresh.
+    await this.deps.secrets.set(
+      settings.oauth.accessTokenSecretName,
+      tokens.access_token,
+    );
+    if (tokens.refresh_token) {
+      await this.deps.secrets.set(
+        settings.oauth.refreshTokenSecretName ||
+          INTERNAL_SECRETS.oauthRefreshToken,
+        tokens.refresh_token,
+      );
+    }
     settings.oauth = {
       ...settings.oauth,
-      accessToken: tokens.access_token,
-      // Atlassian rotates refresh tokens — always store the new one.
-      refreshToken: tokens.refresh_token,
+      refreshTokenSecretName:
+        settings.oauth.refreshTokenSecretName ||
+        INTERNAL_SECRETS.oauthRefreshToken,
       expiresAt: Date.now() + tokens.expires_in * 1000,
     };
     await this.deps.saveSettings();
