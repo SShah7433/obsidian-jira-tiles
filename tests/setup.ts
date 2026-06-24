@@ -32,6 +32,20 @@ if (typeof (globalThis as { crypto?: { subtle?: unknown } }).crypto === "undefin
   }
 }
 
+// Silence the diagnostic '[jira-tiles] …' console output in tests so the
+// passing-suite output stays clean. Errors from the test code itself still
+// surface via Jest's failure reporting; we only filter our own breadcrumbs.
+const originalLog = console.log;
+const originalError = console.error;
+console.log = ((...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("[jira-tiles]")) return;
+  originalLog(...(args as []));
+}) as typeof console.log;
+console.error = ((...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("[jira-tiles]")) return;
+  originalError(...(args as []));
+}) as typeof console.error;
+
 declare global {
   interface HTMLElement {
     createDiv(o?: DomElInit): HTMLDivElement;

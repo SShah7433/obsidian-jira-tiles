@@ -87,15 +87,38 @@ export class JiraClient {
   async getAccessibleResources(
     accessToken: string,
   ): Promise<AccessibleResource[]> {
+    const url = "https://api.atlassian.com/oauth/token/accessible-resources";
+    console.log("[jira-tiles] GET", url);
     const res = await this.request({
-      url: "https://api.atlassian.com/oauth/token/accessible-resources",
+      url,
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
       throw: false,
     });
+    console.log(
+      "[jira-tiles] accessible-resources status:",
+      res.status,
+      "body length:",
+      (res.text ?? "").length,
+    );
     if (res.status >= 200 && res.status < 300) {
-      return res.json as AccessibleResource[];
+      // requestUrl's `.json` may have failed if Content-Type is missing;
+      // fall back to parsing the text.
+      let payload: unknown = res.json;
+      if (!payload && res.text) {
+        try {
+          payload = JSON.parse(res.text);
+        } catch {
+          // ignore — surface as empty
+        }
+      }
+      return (payload ?? []) as AccessibleResource[];
     }
+    console.error(
+      "[jira-tiles] accessible-resources error",
+      res.status,
+      res.text,
+    );
     throw new JiraApiError(res.status, "Failed to list Jira sites", res.text);
   }
 

@@ -168,7 +168,30 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         "Suitable when OAuth/SSO is not available.",
     });
 
-    const apiToken = this.plugin.settings.apiToken ?? {
+    /**
+     * Read-modify-write helper for the API token credential bag.
+     *
+     * IMPORTANT: each onChange handler must read the *current* persisted
+     * state at fire time, not a snapshot captured at render time. Capturing
+     * at render meant that typing into one field would clobber values
+     * already entered into other fields (the captured snapshot was missing
+     * those values). Use this helper everywhere instead of spreading from
+     * a stale local variable.
+     */
+    const updateApiToken = async (
+      patch: Partial<import("./types").ApiTokenState>,
+    ): Promise<void> => {
+      const current = this.plugin.settings.apiToken ?? {
+        siteUrl: "",
+        email: "",
+        token: "",
+      };
+      this.plugin.settings.apiToken = { ...current, ...patch };
+      await this.plugin.saveSettings();
+    };
+
+    // For initial population only — never spread from this in handlers.
+    const initial = this.plugin.settings.apiToken ?? {
       siteUrl: "",
       email: "",
       token: "",
@@ -180,13 +203,21 @@ export class JiraTilesSettingTab extends PluginSettingTab {
       .addText((text) =>
         text
           .setPlaceholder("https://your-site.atlassian.net")
-          .setValue(apiToken.siteUrl)
+          .setValue(initial.siteUrl)
           .onChange(async (value) => {
-            this.plugin.settings.apiToken = {
-              ...apiToken,
-              siteUrl: normalizeSiteUrl(value),
-            };
-            await this.plugin.saveSettings();
+            // Defer normalization until the field looks complete; otherwise
+            // mid-typing values like "h" become "https://h" which then race
+            // ahead of the user's intent. We trim whitespace but only force
+            // the https:// prefix if the user has typed something
+            // recognizably URL-shaped (contains a dot or already begins
+            // with http/https).
+            const trimmed = value.trim();
+            const looksUrlish =
+              /^https?:\/\//i.test(trimmed) || trimmed.includes(".");
+            const stored = looksUrlish
+              ? normalizeSiteUrl(trimmed)
+              : trimmed;
+            await updateApiToken({ siteUrl: stored });
           }),
       );
 
@@ -196,13 +227,9 @@ export class JiraTilesSettingTab extends PluginSettingTab {
       .addText((text) =>
         text
           .setPlaceholder("you@example.com")
-          .setValue(apiToken.email)
+          .setValue(initial.email)
           .onChange(async (value) => {
-            this.plugin.settings.apiToken = {
-              ...this.plugin.settings.apiToken!,
-              email: value.trim(),
-            };
-            await this.plugin.saveSettings();
+            await updateApiToken({ email: value.trim() });
           }),
       );
 
@@ -217,13 +244,13 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         text.inputEl.type = "password";
         text
           .setPlaceholder("ATATT...")
-          .setValue(apiToken.token)
+          .setValue(initial.token)
           .onChange(async (value) => {
-            this.plugin.settings.apiToken = {
-              ...this.plugin.settings.apiToken!,
-              token: value,
-            };
-            await this.plugin.saveSettings();
+            // Don't trim the token — Atlassian tokens are opaque blobs and
+            // some users have whitespace-bearing tokens (rare, but possible).
+            // We still strip leading/trailing whitespace because copy-paste
+            // commonly drags newline characters along.
+            await updateApiToken({ token: value.trim() });
           });
       });
 
@@ -239,8 +266,26 @@ export class JiraTilesSettingTab extends PluginSettingTab {
           .onClick(async () => {
             const t = this.plugin.settings.apiToken;
             if (!isApiTokenStateComplete(t)) {
+              // Spell out exactly what's missing so the user can see at a
+              // glance which field needs attention. Logged to the console
+              // for DevTools-assisted debugging.
+              const partial: Partial<import("./types").ApiTokenState> = t ?? {};
+              const missing: string[] = [];
+              if (!partial.siteUrl) missing.push("Jira site URL");
+              else if (!/^https:\/\/.+/i.test(partial.siteUrl)) {
+                missing.push("Site URL must start with https://");
+              }
+              if (!partial.email) missing.push("Email");
+              else if (!/@/.test(partial.email)) missing.push("Email is not valid");
+              if (!partial.token) missing.push("API token");
+              console.log("[jira-tiles] activate failed; current apiToken:", {
+                siteUrl: partial.siteUrl,
+                email: partial.email,
+                tokenSet: !!partial.token,
+              });
               new Notice(
-                "Please fill in site URL (https://...), email, and token first.",
+                `Cannot activate — fix: ${missing.join(", ")}.`,
+                10_000,
               );
               return;
             }

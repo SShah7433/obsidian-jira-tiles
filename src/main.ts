@@ -82,16 +82,25 @@ export default class JiraTilesPlugin extends Plugin {
         openExternalUrl(url);
       },
       http: async (url, body) => {
-        const formBody = new URLSearchParams(body).toString();
+        // Atlassian's token endpoint accepts JSON-encoded bodies (and that's
+        // what their official examples use). It also accepts form-encoded,
+        // but JSON is more reliable across edge cases / proxies.
+        const jsonBody = JSON.stringify(body);
+        console.log(
+          "[jira-tiles] OAuth POST",
+          url,
+          "params:",
+          Object.keys(body).join(","),
+        );
         try {
           const res = await requestUrl({
             url,
             method: "POST",
             headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
+              "Content-Type": "application/json",
               Accept: "application/json",
             },
-            body: formBody,
+            body: jsonBody,
             throw: false,
           });
           // requestUrl's `json` getter throws when body is not valid JSON; do
@@ -102,6 +111,12 @@ export default class JiraTilesPlugin extends Plugin {
           } catch {
             json = undefined;
           }
+          console.log(
+            "[jira-tiles] OAuth response status:",
+            res.status,
+            "body length:",
+            (res.text ?? "").length,
+          );
           if (res.status < 200 || res.status >= 300) {
             console.error(
               "[jira-tiles] OAuth HTTP error",
