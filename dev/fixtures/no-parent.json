@@ -1,0 +1,22 @@
+{
+  "kind": "issue",
+  "fetchedAt": 1756000000000,
+  "issue": {
+    "id": "30001",
+    "key": "PLAT-42",
+    "fields": {
+      "summary": "Add OAuth refresh-token rotation support",
+      "issuetype": { "name": "Task" },
+      "status": {
+        "name": "To Do",
+        "statusCategory": { "key": "new", "colorName": "blue-gray", "name": "To Do" }
+      },
+      "priority": { "name": "High" },
+      "duedate": "2026-09-15",
+      "assignee": {
+        "displayName": "Jordan Lee",
+        "accountId": "u-77"
+      }
+    }
+  }
+}

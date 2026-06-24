@@ -51,31 +51,38 @@ function makeCtx(over: Partial<RenderContext> = {}): RenderContext {
 }
 
 describe("renderInto — happy path", () => {
-  it("renders summary, subtitle, status, priority, assignee", async () => {
+  it("renders summary, subtitle, status, priority (with icon), assignee, and issue-type field", async () => {
     const container = document.createElement("div");
     await renderInto(container, { key: "PROJ-1" }, makeCtx());
 
-    // Summary in the bold title row.
-    const summary = container.querySelector(".jira-tile-summary");
-    expect(summary?.textContent).toBe("Hello world");
-
-    // Subtitle "Task PROJ-1 in Jira Cloud" (issue type + key + site name).
+    expect(container.querySelector(".jira-tile-summary")?.textContent).toBe(
+      "Hello world",
+    );
     const subtitle = container.querySelector(".jira-tile-subtitle");
     expect(subtitle?.textContent).toContain("Task PROJ-1");
     expect(subtitle?.textContent).toContain("Jira Cloud");
 
-    // Field-label pairs.
-    const labels = Array.from(container.querySelectorAll(".jira-tile-field-label"))
-      .map((el) => el.textContent);
-    expect(labels).toEqual(expect.arrayContaining(["Status", "Priority", "Assignee", "Due"]));
+    const labels = Array.from(
+      container.querySelectorAll(".jira-tile-field-label"),
+    ).map((el) => el.textContent);
+    expect(labels).toEqual(
+      expect.arrayContaining(["Issue Type", "Status", "Priority", "Assignee", "Due"]),
+    );
 
     // Status badge.
     const badge = container.querySelector(".jira-tile-status-badge");
     expect(badge?.textContent).toBe("In Progress");
     expect(badge?.classList.contains("jira-tile-status-badge--yellow")).toBe(true);
 
-    // Priority value text.
-    expect(container.querySelector(".jira-tile-priority-value")?.textContent).toBe("High");
+    // Priority cell has both an inline icon and the name.
+    const priorityCell = container.querySelector(".jira-tile-cell--priority");
+    expect(priorityCell?.querySelector(".jira-tile-icon-inline")).not.toBeNull();
+    expect(priorityCell?.querySelector(".jira-tile-priority-name")?.textContent).toBe("High");
+
+    // Issue-type cell has icon and name.
+    const itCell = container.querySelector(".jira-tile-cell--issuetype");
+    expect(itCell?.querySelector(".jira-tile-icon-inline")).not.toBeNull();
+    expect(itCell?.querySelector(".jira-tile-issuetype-name")?.textContent).toBe("Task");
 
     // Assignee chip rendered with the name.
     const chip = container.querySelector(".jira-tile-assignee-chip");
@@ -116,6 +123,13 @@ describe("renderInto — happy path", () => {
     expect(subtitle?.textContent).toBe("Epic AI-3855 in Jira Cloud");
   });
 
+  it("falls back to issue type+own key when no parent", async () => {
+    const container = document.createElement("div");
+    await renderInto(container, { key: "PROJ-1" }, makeCtx());
+    const subtitle = container.querySelector(".jira-tile-subtitle");
+    expect(subtitle?.textContent).toBe("Task PROJ-1 in Jira Cloud");
+  });
+
   it("respects display option toggles", async () => {
     const container = document.createElement("div");
     await renderInto(
@@ -128,18 +142,19 @@ describe("renderInto — happy path", () => {
           showAssignee: false,
           showDueDate: false,
           showIssueType: false,
+          showIssueTypeField: false,
           customFields: [],
         },
       }),
     );
     expect(container.textContent).toContain("Hello world");
     expect(container.querySelector(".jira-tile-status-badge")).toBeNull();
-    expect(container.querySelector(".jira-tile-priority-value")).toBeNull();
+    expect(container.querySelector(".jira-tile-cell--priority")).toBeNull();
+    expect(container.querySelector(".jira-tile-cell--issuetype")).toBeNull();
     expect(container.querySelector(".jira-tile-assignee-chip")).toBeNull();
-    expect(container.querySelector(".jira-tile-issuetype img")).toBeNull();
   });
 
-  it("renders custom fields as labeled cells when configured and value present", async () => {
+  it("places custom fields in their own grid with data-count attribute", async () => {
     const container = document.createElement("div");
     await renderInto(
       container,
@@ -153,6 +168,7 @@ describe("renderInto — happy path", () => {
                 { id: 1, name: "Sprint 1", state: "active" },
               ],
               customfield_10016: 5,
+              customfield_10100: { value: "Platform" },
             },
           }),
           fetchedAt: Date.now(),
@@ -163,19 +179,40 @@ describe("renderInto — happy path", () => {
           customFields: [
             { id: "customfield_10020", label: "Sprint", enabled: true },
             { id: "customfield_10016", label: "Story Points", enabled: true },
+            { id: "customfield_10100", label: "Team", enabled: true },
             { id: "customfield_99999", label: "Missing", enabled: true },
           ],
         },
       }),
     );
-    const labels = Array.from(container.querySelectorAll(".jira-tile-field-label"))
-      .map((el) => el.textContent);
-    expect(labels).toContain("Sprint");
-    expect(labels).toContain("Story Points");
-    // Field with no value should be skipped, not show "Missing —".
-    expect(labels).not.toContain("Missing");
-    expect(container.textContent).toContain("Sprint 1");
-    expect(container.textContent).toContain("5");
+    const customGrid = container.querySelector(".jira-tile-grid--custom") as
+      | HTMLElement
+      | null;
+    expect(customGrid).not.toBeNull();
+    // Three present fields (Missing skipped because no value).
+    expect(customGrid?.dataset.count).toBe("3");
+    const customLabels = Array.from(
+      customGrid?.querySelectorAll(".jira-tile-field-label") ?? [],
+    ).map((el) => el.textContent);
+    expect(customLabels).toEqual(["Sprint", "Story Points", "Team"]);
+    expect(customLabels).not.toContain("Missing");
+  });
+
+  it("does not create the custom grid when no custom field has a value", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1" },
+      makeCtx({
+        display: {
+          ...displayOptionsFromSettings(DEFAULT_SETTINGS),
+          customFields: [
+            { id: "customfield_99999", label: "Missing", enabled: true },
+          ],
+        },
+      }),
+    );
+    expect(container.querySelector(".jira-tile-grid--custom")).toBeNull();
   });
 
   it("renders an unassigned chip when assignee is null", async () => {
@@ -197,7 +234,7 @@ describe("renderInto — happy path", () => {
 });
 
 describe("renderInto — error path", () => {
-  it("renders an error tile with retry + Open in Jira", async () => {
+  it("renders an error tile with refresh + Open in Jira buttons", async () => {
     const container = document.createElement("div");
     await renderInto(
       container,
@@ -211,7 +248,7 @@ describe("renderInto — error path", () => {
     expect(container.textContent).toContain("Failed to load");
     expect(container.textContent).toContain("Issue not found.");
     expect(container.querySelector(".jira-tile--error")).not.toBeNull();
-    expect(container.querySelector(".jira-tile-retry-btn")).not.toBeNull();
+    expect(container.querySelector(".jira-tile-refresh-btn")).not.toBeNull();
     const link = container.querySelector(".jira-tile-open-btn") as HTMLAnchorElement;
     expect(link).not.toBeNull();
     expect(link.getAttribute("href")).toContain("/browse/PROJ-404");
@@ -238,8 +275,8 @@ describe("renderInto — stale path", () => {
   });
 });
 
-describe("refresh on timestamp click", () => {
-  it("re-invokes fetch with force=true when the timestamp is clicked", async () => {
+describe("Refresh button", () => {
+  it("re-invokes fetch with force=true when clicked", async () => {
     const container = document.createElement("div");
     let calls = 0;
     let lastForce = false;
@@ -259,13 +296,27 @@ describe("refresh on timestamp click", () => {
       }),
     );
     expect(calls).toBe(1);
-    const ts = container.querySelector(".jira-tile-timestamp") as HTMLElement;
-    expect(ts).not.toBeNull();
-    ts.click();
+    const btn = container.querySelector(
+      ".jira-tile-refresh-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    btn.click();
+    // Allow async refresh to settle.
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
     expect(calls).toBe(2);
     expect(lastForce).toBe(true);
+  });
+
+  it("renders to the left of the Open in Jira button", async () => {
+    const container = document.createElement("div");
+    await renderInto(container, { key: "PROJ-1" }, makeCtx());
+    const actions = container.querySelector(".jira-tile-actions");
+    const children = Array.from(actions?.children ?? []);
+    expect(children.length).toBe(2);
+    expect(children[0].classList.contains("jira-tile-refresh-btn")).toBe(true);
+    expect(children[1].classList.contains("jira-tile-open-btn")).toBe(true);
   });
 });
 

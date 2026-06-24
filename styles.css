@@ -116,7 +116,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem 1.25rem 1.25rem;
+  padding: 1rem 1.25rem 1.125rem;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,11 +140,11 @@
   justify-content: center;
 }
 
-.jira-tile-issuetype img,
-.jira-tile-issuetype svg {
+.jira-tile-issuetype img.jira-icon-img,
+.jira-tile-issuetype svg.jira-icon-svg,
+.jira-tile-issuetype span.jira-icon-chip {
   width: 100%;
   height: 100%;
-  object-fit: contain;
 }
 
 .jira-tile-title {
@@ -171,13 +171,52 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* Field grid: Status / Priority on one row, Assignee full-width below        */
+/* Inline icons (issue type + priority)                                       */
 /* -------------------------------------------------------------------------- */
 
+.jira-tile-icon-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: 0 0 auto;
+}
+
+.jira-tile-icon-inline img.jira-icon-img,
+.jira-tile-icon-inline svg.jira-icon-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.jira-icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Field grid                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The standard grid lays out Issue Type / Status / Priority on a single
+ * row at desktop widths. Assignee + Due Date span the full width below
+ * (assignee chips and dates wrap awkwardly when squeezed into a narrow
+ * column).
+ */
 .jira-tile-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.875rem 1.25rem;
+  min-width: 0;
+}
+
+.jira-tile-grid--standard {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .jira-tile-cell {
@@ -187,17 +226,65 @@
   min-width: 0;
 }
 
-/* Assignee + custom fields span both columns. */
 .jira-tile-cell--assignee,
-.jira-tile-cell--custom,
 .jira-tile-cell--duedate {
   grid-column: 1 / -1;
+}
+
+/*
+ * Custom fields use their own grid so we can size columns based on how many
+ * fields the user has configured. This keeps tiles compact horizontally and
+ * prevents tall single-column stacks. The row count is set on the data-count
+ * attribute by the renderer.
+ */
+.jira-tile-grid--custom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 0.625rem;
+  border-top: 1px dashed var(--background-modifier-border);
+}
+
+.jira-tile-grid--custom[data-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.jira-tile-grid--custom[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.jira-tile-grid--custom[data-count="3"],
+.jira-tile-grid--custom[data-count="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.jira-tile-grid--custom[data-count="5"],
+.jira-tile-grid--custom[data-count="6"],
+.jira-tile-grid--custom[data-count="7"],
+.jira-tile-grid--custom[data-count="8"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .jira-tile-field-label {
   font-size: 0.85rem;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Issue-type body cell                                                       */
+/* -------------------------------------------------------------------------- */
+
+.jira-tile-issuetype-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: var(--text-normal);
+}
+
+.jira-tile-issuetype-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -247,18 +334,32 @@
 /* Priority + due date values                                                 */
 /* -------------------------------------------------------------------------- */
 
-.jira-tile-priority-value,
+.jira-tile-priority-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: var(--text-normal);
+  min-width: 0;
+}
+
+.jira-tile-priority-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .jira-tile-duedate-value,
 .jira-tile-customfield-value {
   font-size: 0.95rem;
   color: var(--text-normal);
   word-break: break-word;
-  /* Truncate single-line values that overflow (priority can be long, e.g.
-     "3-Medium (potential to escalate)"). */
+  /* Truncate long single-line values that overflow. */
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -311,7 +412,7 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* Footer: timestamp left, Open in Jira CTA right                             */
+/* Footer: timestamp left, refresh + Open in Jira right                       */
 /* -------------------------------------------------------------------------- */
 
 .jira-tile-footer {
@@ -319,7 +420,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.625rem 1.25rem;
   border-top: 1px solid var(--background-modifier-border);
   background: var(--background-secondary);
 }
@@ -327,17 +428,9 @@
 .jira-tile-timestamp {
   font-size: 0.9rem;
   color: var(--text-muted);
-  cursor: pointer;
   user-select: none;
-  /* Match the touch-target floor without visually inflating. */
-  min-height: 36px;
   display: inline-flex;
   align-items: center;
-}
-
-.jira-tile-timestamp:hover {
-  color: var(--text-normal);
-  text-decoration: underline;
 }
 
 .jira-tile-timestamp--stale {
@@ -355,22 +448,29 @@
   align-items: center;
 }
 
-.jira-tile-open-btn {
+/* Smaller, denser buttons than before — design ref had 32px-ish height. */
+
+.jira-tile-open-btn,
+.jira-tile-refresh-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1rem;
-  /* 44px floor for touch targets. */
-  min-height: 44px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.jira-tile-open-btn {
+  padding: 0 0.875rem;
   background: #1f8b4c;
   color: #ffffff !important;
-  border: 1px solid #1a7541;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border-color: #1a7541;
   text-decoration: none !important;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .jira-tile-open-btn:hover,
@@ -391,24 +491,36 @@
   border-color: #38c773;
 }
 
-.jira-tile-retry-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  min-height: 44px;
+.jira-tile-refresh-btn {
+  /* Icon-only square button. */
+  width: 32px;
+  padding: 0;
   background: transparent;
-  color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
+  color: var(--text-muted);
+  border-color: var(--background-modifier-border);
 }
 
-.jira-tile-retry-btn:hover,
-.jira-tile-retry-btn:focus-visible {
+.jira-tile-refresh-btn:hover,
+.jira-tile-refresh-btn:focus-visible {
   background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border);
+}
+
+.jira-tile-refresh-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Spin animation while a refresh is in flight. */
+
+@keyframes jira-tile-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.jira-tile-refresh-btn.is-spinning svg {
+  animation: jira-tile-spin 0.9s linear infinite;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -436,7 +548,6 @@
 }
 
 .jira-tile--loading .jira-tile-issuetype {
-  background: var(--background-modifier-border);
   border-radius: 4px;
   animation: jira-tile-shimmer 1.4s ease-in-out infinite;
   background: linear-gradient(
@@ -455,33 +566,46 @@
 .jira-tile-error-message {
   color: var(--text-error);
   font-size: var(--font-ui-smaller);
+  margin: 0;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Responsive: phone-width tweaks                                             */
 /* -------------------------------------------------------------------------- */
 
+@media (max-width: 600px) {
+  .jira-tile-grid--standard {
+    /* Two columns at tablet/landscape phone widths. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .jira-tile-grid--custom[data-count="5"],
+  .jira-tile-grid--custom[data-count="6"],
+  .jira-tile-grid--custom[data-count="7"],
+  .jira-tile-grid--custom[data-count="8"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 480px) {
   .jira-tile-body {
     padding: 0.875rem 1rem 1rem;
     gap: 0.875rem;
   }
-  .jira-tile-grid {
-    /* Stack everything on phone widths. */
+  .jira-tile-grid--standard,
+  .jira-tile-grid--custom,
+  .jira-tile-grid--custom[data-count="2"],
+  .jira-tile-grid--custom[data-count="3"],
+  .jira-tile-grid--custom[data-count="4"],
+  .jira-tile-grid--custom[data-count="5"],
+  .jira-tile-grid--custom[data-count="6"],
+  .jira-tile-grid--custom[data-count="7"],
+  .jira-tile-grid--custom[data-count="8"] {
     grid-template-columns: 1fr;
-  }
-  .jira-tile-cell--status,
-  .jira-tile-cell--priority {
-    grid-column: 1 / -1;
   }
   .jira-tile-summary {
     font-size: 1rem;
   }
   .jira-tile-footer {
-    padding: 0.75rem 1rem;
-  }
-  .jira-tile-open-btn,
-  .jira-tile-retry-btn {
-    padding: 0.5rem 0.875rem;
+    padding: 0.625rem 1rem;
   }
 }

@@ -7,24 +7,21 @@
  *   │  [icon]  Big bold summary                                  │
  *   │          Epic AI-3855 in Jira Cloud                        │
  *   │                                                            │
- *   │  Status                       Priority                     │
- *   │  [In Progress]                3-Medium (potential to …)    │
+ *   │  Issue Type        Status            Priority              │
+ *   │  [icon] Story      [In Progress]     [↑] High              │
  *   │                                                            │
  *   │  Assignee                                                  │
  *   │  [👤 Rahul Ramakrishna]                                    │
+ *   │                                                            │
+ *   │  Sprint           Story Points       Team                  │
+ *   │  Sprint 42        5                  Platform              │
  *   ├────────────────────────────────────────────────────────────┤
- *   │  As of today at 11:37 AM      [ Open in Jira ]            │
+ *   │  As of today at 11:37 AM        [↻] [ Open in Jira ]       │
  *   └────────────────────────────────────────────────────────────┘
  *
  * The renderer is intentionally framework-free; it manipulates DOM nodes
  * directly so it can run inside Obsidian's reading view, live preview, and
  * the standalone dev harness without React/Svelte runtime dependencies.
- *
- * Render flow:
- *   renderInto(container, request, ctx)
- *     1. Mount a loading skeleton.
- *     2. ctx.fetch(key, force) -> FetchResult
- *     3. Replace skeleton with the populated tile (or error tile on failure).
  *
  * `ctx` is dependency-injected so the same renderer code is exercised by:
  *   - The plugin (passes a real fetcher backed by JiraClient + IssueCache)
@@ -36,7 +33,11 @@ import { Notice } from "obsidian";
 import type { JiraIssue } from "../jira/types";
 import type { FetchResult } from "../cache/issueCache";
 import { InvalidJiraBlockError, type IssueRequest } from "./parseBlock";
-import { renderIssueTypeIcon } from "./icons";
+import {
+  appendRefreshIcon,
+  renderIssueTypeIcon,
+  renderPriorityIcon,
+} from "./icons";
 import { formatCustomField } from "./formatters";
 import type { CustomFieldConfig, PluginSettings } from "../settings/types";
 
@@ -46,7 +47,10 @@ export interface DisplayOptions {
   showPriority: boolean;
   showAssignee: boolean;
   showDueDate: boolean;
+  /** Show the issue-type icon in the header next to the summary. */
   showIssueType: boolean;
+  /** Show "Issue Type" as a labeled body grid cell. */
+  showIssueTypeField: boolean;
   customFields: CustomFieldConfig[];
 }
 
@@ -83,6 +87,7 @@ export function displayOptionsFromSettings(s: PluginSettings): DisplayOptions {
     showAssignee: s.showAssignee,
     showDueDate: s.showDueDate,
     showIssueType: s.showIssueType,
+    showIssueTypeField: s.showIssueTypeField,
     customFields: s.customFields.filter((f) => f.enabled && f.id),
   };
 }
@@ -209,83 +214,68 @@ function renderLoadedTile(
   const subtitle = titleWrap.createDiv({ cls: "jira-tile-subtitle" });
   buildSubtitle(subtitle, issue);
 
-  /* Grid: Status / Priority / Assignee ---------------------------------- */
+  /* Standard fields grid (Issue Type / Status / Priority / Assignee /Due) */
 
-  const grid = body.createDiv({ cls: "jira-tile-grid" });
-  const fields = ctx.display;
+  const standardGrid = body.createDiv({
+    cls: "jira-tile-grid jira-tile-grid--standard",
+  });
+  renderStandardFields(standardGrid, issue, ctx.display);
 
-  if (fields.showStatus && issue.fields.status?.name) {
-    const cell = grid.createDiv({ cls: "jira-tile-cell jira-tile-cell--status" });
-    cell.createDiv({ cls: "jira-tile-field-label", text: "Status" });
-    const color = issue.fields.status.statusCategory?.colorName ?? "medium-gray";
-    const badge = cell.createDiv({
-      cls: `jira-tile-status-badge jira-tile-status-badge--${color}`,
-    });
-    badge.createSpan({ text: issue.fields.status.name });
-  }
+  /* Custom fields grid: separate so it can use a denser layout ----------- */
 
-  if (fields.showPriority && issue.fields.priority?.name) {
-    const cell = grid.createDiv({ cls: "jira-tile-cell jira-tile-cell--priority" });
-    cell.createDiv({ cls: "jira-tile-field-label", text: "Priority" });
-    cell.createDiv({
-      cls: "jira-tile-priority-value",
-      text: issue.fields.priority.name,
-    });
-  }
-
-  if (fields.showDueDate && issue.fields.duedate) {
-    const cell = grid.createDiv({ cls: "jira-tile-cell jira-tile-cell--duedate" });
-    cell.createDiv({ cls: "jira-tile-field-label", text: "Due" });
-    const value = cell.createDiv({ cls: "jira-tile-duedate-value" });
-    value.appendChild(formatCustomField(issue.fields.duedate));
-  }
-
-  if (fields.showAssignee) {
-    const cell = grid.createDiv({ cls: "jira-tile-cell jira-tile-cell--assignee" });
-    cell.createDiv({ cls: "jira-tile-field-label", text: "Assignee" });
-    if (issue.fields.assignee) {
-      const chip = cell.createDiv({ cls: "jira-tile-assignee-chip" });
-      chip.appendChild(formatCustomField(issue.fields.assignee));
-    } else {
-      cell.createDiv({
-        cls: "jira-tile-assignee-chip jira-tile-assignee-chip--unassigned",
-        text: "Unassigned",
+  if (ctx.display.customFields.length > 0) {
+    const renderable = ctx.display.customFields.filter(
+      (f) => issue.fields[f.id] !== undefined,
+    );
+    if (renderable.length > 0) {
+      const customGrid = body.createDiv({
+        cls: "jira-tile-grid jira-tile-grid--custom",
       });
+      // Tag the grid with the count so CSS can switch column densities.
+      customGrid.dataset.count = String(renderable.length);
+      for (const field of renderable) {
+        const cell = customGrid.createDiv({
+          cls: "jira-tile-cell jira-tile-cell--custom",
+        });
+        cell.createDiv({
+          cls: "jira-tile-field-label",
+          text: field.label || field.id,
+        });
+        const valueEl = cell.createDiv({ cls: "jira-tile-customfield-value" });
+        valueEl.appendChild(formatCustomField(issue.fields[field.id]));
+      }
     }
   }
 
-  /* Custom fields: each gets its own labeled cell ----------------------- */
-
-  for (const field of ctx.display.customFields) {
-    const value = issue.fields[field.id];
-    if (value === undefined) continue;
-    const cell = grid.createDiv({ cls: "jira-tile-cell jira-tile-cell--custom" });
-    cell.createDiv({
-      cls: "jira-tile-field-label",
-      text: field.label || field.id,
-    });
-    const valueEl = cell.createDiv({ cls: "jira-tile-customfield-value" });
-    valueEl.appendChild(formatCustomField(value));
-  }
-
-  /* Footer: timestamp left, Open in Jira CTA right ---------------------- */
+  /* Footer: timestamp left, refresh + Open in Jira right ---------------- */
 
   const footer = tile.createDiv({ cls: "jira-tile-footer" });
 
   const tsWrap = footer.createDiv({ cls: "jira-tile-timestamp" });
   tsWrap.setText(formatLastUpdated(result.fetchedAt, ctx.now));
-  tsWrap.title = "Click to refresh";
-  tsWrap.addEventListener("click", () => {
-    onRefresh(true).catch((e) =>
-      new Notice(`Refresh failed: ${(e as Error).message}`),
-    );
-  });
   if (result.staleError) {
     tsWrap.addClass("jira-tile-timestamp--stale");
-    tsWrap.title = `Showing cached data — ${result.staleError.message}. Click to retry.`;
+    tsWrap.title = `Showing cached data — ${result.staleError.message}`;
   }
 
   const actions = footer.createDiv({ cls: "jira-tile-actions" });
+
+  const refreshBtn = actions.createEl("button", {
+    cls: "jira-tile-refresh-btn",
+    attr: {
+      type: "button",
+      "aria-label": "Refresh",
+      title: "Refresh",
+    },
+  });
+  appendRefreshIcon(refreshBtn);
+  refreshBtn.addEventListener("click", () => {
+    refreshBtn.classList.add("is-spinning");
+    onRefresh(true)
+      .catch((e) => new Notice(`Refresh failed: ${(e as Error).message}`))
+      .finally(() => refreshBtn.classList.remove("is-spinning"));
+  });
+
   const issueUrl = ctx.buildIssueUrl(issue.key);
   const openBtn = actions.createEl("a", {
     cls: "jira-tile-open-btn",
@@ -297,6 +287,90 @@ function renderLoadedTile(
   attachOpener(openBtn, issueUrl, ctx);
 
   return tile;
+}
+
+/**
+ * Render the standard field grid (issue type, status, priority, due date,
+ * assignee). Extracted for readability — the function is purely DOM-building.
+ */
+function renderStandardFields(
+  grid: HTMLElement,
+  issue: JiraIssue,
+  display: DisplayOptions,
+): void {
+  if (display.showIssueTypeField && issue.fields.issuetype?.name) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--issuetype",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Issue Type" });
+    const value = cell.createDiv({ cls: "jira-tile-issuetype-value" });
+    const icon = value.createSpan({ cls: "jira-tile-icon-inline" });
+    renderIssueTypeIcon(
+      icon,
+      issue.fields.issuetype.iconUrl,
+      issue.fields.issuetype.name,
+    );
+    value.createSpan({
+      cls: "jira-tile-issuetype-name",
+      text: issue.fields.issuetype.name,
+    });
+  }
+
+  if (display.showStatus && issue.fields.status?.name) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--status",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Status" });
+    const color =
+      issue.fields.status.statusCategory?.colorName ?? "medium-gray";
+    const badge = cell.createDiv({
+      cls: `jira-tile-status-badge jira-tile-status-badge--${color}`,
+    });
+    badge.createSpan({ text: issue.fields.status.name });
+  }
+
+  if (display.showPriority && issue.fields.priority?.name) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--priority",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Priority" });
+    const value = cell.createDiv({ cls: "jira-tile-priority-value" });
+    const icon = value.createSpan({ cls: "jira-tile-icon-inline" });
+    renderPriorityIcon(
+      icon,
+      issue.fields.priority.iconUrl,
+      issue.fields.priority.name,
+    );
+    value.createSpan({
+      cls: "jira-tile-priority-name",
+      text: issue.fields.priority.name,
+    });
+  }
+
+  if (display.showDueDate && issue.fields.duedate) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--duedate",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Due" });
+    const value = cell.createDiv({ cls: "jira-tile-duedate-value" });
+    value.appendChild(formatCustomField(issue.fields.duedate));
+  }
+
+  if (display.showAssignee) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--assignee",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Assignee" });
+    if (issue.fields.assignee) {
+      const chip = cell.createDiv({ cls: "jira-tile-assignee-chip" });
+      chip.appendChild(formatCustomField(issue.fields.assignee));
+    } else {
+      cell.createDiv({
+        cls: "jira-tile-assignee-chip jira-tile-assignee-chip--unassigned",
+        text: "Unassigned",
+      });
+    }
+  }
 }
 
 function renderErrorTile(
@@ -321,19 +395,23 @@ function renderErrorTile(
   });
 
   const footer = tile.createDiv({ cls: "jira-tile-footer" });
-  const retry = footer.createEl("button", {
-    cls: "jira-tile-retry-btn",
-    text: "Retry",
-    attr: { type: "button", "aria-label": "Retry" },
+  // Timestamp slot empty in error state — keep grid stable.
+  footer.createDiv({ cls: "jira-tile-timestamp", text: " " });
+
+  const actions = footer.createDiv({ cls: "jira-tile-actions" });
+  const retry = actions.createEl("button", {
+    cls: "jira-tile-refresh-btn",
+    attr: { type: "button", "aria-label": "Retry", title: "Retry" },
   });
+  appendRefreshIcon(retry);
   retry.addEventListener("click", () => {
-    onRefresh(true).catch((e) =>
-      new Notice(`Retry failed: ${(e as Error).message}`),
-    );
+    retry.classList.add("is-spinning");
+    onRefresh(true)
+      .catch((e) => new Notice(`Retry failed: ${(e as Error).message}`))
+      .finally(() => retry.classList.remove("is-spinning"));
   });
 
   const url = ctx.buildIssueUrl(key);
-  const actions = footer.createDiv({ cls: "jira-tile-actions" });
   const openBtn = actions.createEl("a", {
     cls: "jira-tile-open-btn",
     text: "Open in Jira",

@@ -5,7 +5,9 @@
     { "id": "customfield_10020", "label": "Sprint" },
     { "id": "customfield_10016", "label": "Story Points" },
     { "id": "customfield_10100", "label": "Team" },
-    { "id": "customfield_10200", "label": "QA Owner" }
+    { "id": "customfield_10200", "label": "QA Owner" },
+    { "id": "customfield_10300", "label": "Targets" },
+    { "id": "customfield_10400", "label": "Released" }
   ],
   "issue": {
     "id": "10003",
@@ -13,6 +15,10 @@
     "fields": {
       "summary": "Migrate authentication to OAuth 2.0 with PKCE",
       "issuetype": { "name": "Epic" },
+      "parent": {
+        "key": "PLAT-100",
+        "fields": { "issuetype": { "name": "Initiative" } }
+      },
       "status": {
         "name": "Done",
         "statusCategory": { "key": "done", "colorName": "green", "name": "Done" }
@@ -32,7 +38,13 @@
       "customfield_10200": {
         "displayName": "Priya Patel",
         "accountId": "u-3"
-      }
+      },
+      "customfield_10300": [
+        { "value": "iOS" },
+        { "value": "Android" },
+        { "value": "Web" }
+      ],
+      "customfield_10400": "2026-08-30T14:23:00.000+0000"
     }
   }
 }

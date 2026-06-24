@@ -62,7 +62,10 @@ export interface PluginSettings {
   showPriority: boolean;
   showAssignee: boolean;
   showDueDate: boolean;
+  /** Show the issue-type icon in the tile header (next to the summary). */
   showIssueType: boolean;
+  /** Show a labeled "Issue Type" field in the body grid (icon + name). */
+  showIssueTypeField: boolean;
 
   /** Cache TTL in minutes; controls when tiles auto-refresh. */
   cacheTtlMinutes: number;

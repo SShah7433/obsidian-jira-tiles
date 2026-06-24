@@ -281,13 +281,15 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         | "showAssignee"
         | "showDueDate"
         | "showIssueType"
+        | "showIssueTypeField"
       >,
       string,
       string,
     ]> = [
-      ["showIssueType", "Show issue type", "Display issue type icon and label."],
+      ["showIssueType", "Show issue-type icon in header", "Display the Jira issue type icon to the left of the summary."],
+      ["showIssueTypeField", "Show issue type as a field", "Add a labeled 'Issue Type' cell in the body grid (icon + name)."],
       ["showStatus", "Show status", "Display the issue's workflow status."],
-      ["showPriority", "Show priority", "Display the issue's priority level."],
+      ["showPriority", "Show priority", "Display the issue's priority level (with icon)."],
       ["showAssignee", "Show assignee", "Display the assignee with avatar."],
       ["showDueDate", "Show due date", "Display the due date when set."],
     ];
