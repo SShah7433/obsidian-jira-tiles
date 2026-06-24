@@ -19,6 +19,7 @@ import { OAuthFlow } from "./auth/tokenStore";
 import { JiraClient } from "./jira/client";
 import { IssueCache } from "./cache/issueCache";
 import { buildCodeBlockProcessor } from "./render/codeBlockProcessor";
+import { buildCommands } from "./commands";
 
 export default class JiraTilesPlugin extends Plugin {
   settings: PluginSettings = { ...DEFAULT_SETTINGS };
@@ -90,7 +91,10 @@ export default class JiraTilesPlugin extends Plugin {
       },
     );
 
-    // Phase 5 will register commands here.
+    // Command palette entries.
+    for (const cmd of buildCommands({ app: this.app, cache: this.cache })) {
+      this.addCommand(cmd);
+    }
   }
 
   async onunload(): Promise<void> {

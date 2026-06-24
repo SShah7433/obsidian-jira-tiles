@@ -47,12 +47,22 @@ export class Plugin {
 export class App {
   workspace = {
     getActiveFile: () => null,
+    getActiveViewOfType: () => null,
     on: () => ({}),
     off: () => undefined,
   };
   vault = {
     getName: () => "test-vault",
   };
+}
+
+/** MarkdownView — used by command lookups. */
+export class MarkdownView {
+  editor = {
+    getValue: () => "",
+    replaceSelection: (_text: string) => {},
+  };
+  leaf = { rebuildView: () => {} };
 }
 
 /** PluginSettingTab — exposed only to satisfy `extends`. */

@@ -184,6 +184,7 @@ export class Plugin {}
 export class PluginSettingTab {}
 export class Setting {}
 export class Modal {}
+export class MarkdownView {}
 export class App {}
 export const Platform = { isMobile: false, isDesktop: true };
 export type MarkdownPostProcessorContext = unknown;

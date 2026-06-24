@@ -20,14 +20,20 @@ module.exports = {
     "src/**/*.ts",
     "!src/**/*.d.ts",
     "!src/main.ts", // Plugin entry — exercised via integration in Obsidian.
+    // SettingsTab + FieldPickerModal are DOM-heavy UI exercised by the dev
+    // harness and manual QA in Obsidian; including them in coverage targets
+    // would push us toward brittle DOM-snapshot tests for low value.
+    "!src/settings/SettingsTab.ts",
+    "!src/settings/FieldPickerModal.ts",
   ],
   coverageThreshold: {
     global: {
-      // Reasonable starting bar; raise as the suite grows.
-      statements: 70,
-      branches: 60,
-      functions: 70,
-      lines: 70,
+      // Reasonable bar given the renderer and auth flows are heavily tested
+      // and the omitted UI shells are exercised by manual / dev harness QA.
+      statements: 80,
+      branches: 75,
+      functions: 80,
+      lines: 80,
     },
   },
   transform: {
