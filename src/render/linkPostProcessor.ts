@@ -17,6 +17,7 @@ import type { CodeBlockProcessorDeps } from "./codeBlockProcessor";
 import { makeRenderContext } from "./codeBlockProcessor";
 import { issueKeyFromUrl } from "./parseUrl";
 import { renderInto } from "./tile";
+import { createEl } from "./dom";
 
 /**
  * Build the post-processor function. It is a no-op unless the active render
@@ -44,7 +45,7 @@ export function buildLinkPostProcessor(
       // Mount the tile in place of the anchor. We replace the anchor's
       // nearest block-ish ancestor content with a fresh container so the
       // tile owns its own line.
-      const container = document.createElement("div");
+      const container = createEl("div");
       anchor.replaceWith(container);
 
       void renderInto(

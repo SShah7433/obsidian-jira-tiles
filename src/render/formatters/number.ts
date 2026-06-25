@@ -3,8 +3,10 @@
  * estimates, votes).
  */
 
+import { createFragment, doc } from "../dom";
+
 export function formatNumber(n: number): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  frag.append(document.createTextNode(n.toLocaleString()));
+  const frag = createFragment();
+  frag.append(doc().createTextNode(n.toLocaleString()));
   return frag;
 }

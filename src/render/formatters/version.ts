@@ -11,11 +11,12 @@
  */
 
 import type { JiraVersion } from "../../jira/types";
+import { createEl, createFragment } from "../dom";
 
 export function formatVersionArray(versions: JiraVersion[]): DocumentFragment {
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
   versions.forEach((v) => {
-    const chip = document.createElement("span");
+    const chip = createEl("span");
     chip.className = "jira-tile-version-chip";
     if (v.released) chip.classList.add("jira-tile-version-chip--released");
     if (v.archived) chip.classList.add("jira-tile-version-chip--archived");

@@ -3,10 +3,12 @@
  * formatter applies. Truncates long strings to keep tile heights bounded.
  */
 
+import { createEl, createFragment } from "../dom";
+
 const MAX_LEN = 240;
 
 export function formatFallback(value: unknown): DocumentFragment {
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
   let json: string;
   try {
     json = JSON.stringify(value);
@@ -16,7 +18,7 @@ export function formatFallback(value: unknown): DocumentFragment {
   if (json && json.length > MAX_LEN) {
     json = json.slice(0, MAX_LEN) + "…";
   }
-  const code = document.createElement("code");
+  const code = createEl("code");
   code.textContent = json ?? "—";
   frag.append(code);
   return frag;

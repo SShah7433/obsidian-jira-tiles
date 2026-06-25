@@ -23,6 +23,7 @@ import { formatDate } from "./date";
 import { formatNumber } from "./number";
 import { formatFallback } from "./fallback";
 import { formatVersionArray, looksLikeVersionArray } from "./version";
+import { createFragment, doc } from "../dom";
 
 /**
  * Detect the shape of `value` and render with the best-matching formatter.
@@ -44,9 +45,9 @@ import { formatVersionArray, looksLikeVersionArray } from "./version";
  * still go to the more specific sprint formatter.
  */
 export function formatCustomField(value: unknown): DocumentFragment {
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
   if (value === null || value === undefined) {
-    frag.append(document.createTextNode("—"));
+    frag.append(doc().createTextNode("—"));
     return frag;
   }
 
@@ -58,19 +59,19 @@ export function formatCustomField(value: unknown): DocumentFragment {
       return formatVersionArray(value as JiraVersion[]);
     }
     if (value.length === 0) {
-      frag.append(document.createTextNode("—"));
+      frag.append(doc().createTextNode("—"));
       return frag;
     }
     if (looksLikeOptionArray(value)) {
       const items = (value as JiraOption[])
         .map((o) => o.value ?? "")
         .filter(Boolean);
-      frag.append(document.createTextNode(items.join(", ")));
+      frag.append(doc().createTextNode(items.join(", ")));
       return frag;
     }
     if (looksLikeUserArray(value)) {
       (value as JiraUser[]).forEach((u, i) => {
-        if (i > 0) frag.append(document.createTextNode(", "));
+        if (i > 0) frag.append(doc().createTextNode(", "));
         frag.append(formatUser(u));
       });
       return frag;
@@ -94,7 +95,7 @@ export function formatCustomField(value: unknown): DocumentFragment {
     if (looksLikeIsoDate(value)) {
       return formatDate(value);
     }
-    frag.append(document.createTextNode(value));
+    frag.append(doc().createTextNode(value));
     return frag;
   }
 
@@ -103,7 +104,7 @@ export function formatCustomField(value: unknown): DocumentFragment {
   }
 
   if (typeof value === "boolean") {
-    frag.append(document.createTextNode(value ? "Yes" : "No"));
+    frag.append(doc().createTextNode(value ? "Yes" : "No"));
     return frag;
   }
 

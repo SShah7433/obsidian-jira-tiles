@@ -585,19 +585,19 @@
     color 0.15s ease;
 }
 
-.jira-tile-open-btn {
+.jira-tile .jira-tile-open-btn {
   padding: 0 0.875rem;
   background: #1f8b4c;
-  color: #ffffff !important;
+  color: #ffffff;
   border-color: #1a7541;
-  text-decoration: none !important;
+  text-decoration: none;
 }
 
-.jira-tile-open-btn:hover,
-.jira-tile-open-btn:focus-visible {
+.jira-tile .jira-tile-open-btn:hover,
+.jira-tile .jira-tile-open-btn:focus-visible {
   background: #1a7541;
   border-color: #14613a;
-  text-decoration: none !important;
+  text-decoration: none;
 }
 
 .theme-dark .jira-tile-open-btn {
@@ -835,7 +835,7 @@
   border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
-  text-decoration: none !important;
+  text-decoration: none;
   font-size: 0.85rem;
 }
 
@@ -859,7 +859,7 @@
 .jira-tile--compact .jira-tile-open-btn--icon:focus-visible {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
-  text-decoration: none !important;
+  text-decoration: none;
 }
 
 .jira-tile--compact .jira-tile-refresh-btn svg,

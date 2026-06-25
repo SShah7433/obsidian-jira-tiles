@@ -82,12 +82,14 @@ export class FieldPickerModal extends Modal {
       });
       const retryRow = contentEl.createDiv();
       const retryBtn = retryRow.createEl("button", { text: "Retry" });
-      retryBtn.addEventListener("click", async () => {
-        this.fields = [];
-        this.loadError = null;
-        this.render();
-        await this.fetchFields();
-        this.render();
+      retryBtn.addEventListener("click", () => {
+        void (async () => {
+          this.fields = [];
+          this.loadError = null;
+          this.render();
+          await this.fetchFields();
+          this.render();
+        })();
       });
       return;
     }

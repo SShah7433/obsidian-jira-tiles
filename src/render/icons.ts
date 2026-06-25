@@ -15,6 +15,7 @@
  */
 
 import { setIcon } from "obsidian";
+import { createEl, doc } from "./dom";
 
 /* -------------------------------------------------------------------------- */
 /* Generic UI icons (refresh / external-link) — Lucide via setIcon()          */
@@ -67,12 +68,13 @@ interface SvgIcon {
 
 /** Build an <svg> element from a declarative descriptor (no innerHTML). */
 function buildSvg(icon: SvgIcon, ariaLabel?: string): SVGElement {
-  const svg = document.createElementNS(SVG_NS, "svg");
+  const d = doc();
+  const svg = d.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
   svg.setAttribute("class", `jira-icon-svg${icon.extraClass ? " " + icon.extraClass : ""}`);
   if (ariaLabel) svg.setAttribute("aria-label", ariaLabel);
   for (const shape of icon.shapes) {
-    const node = document.createElementNS(SVG_NS, shape.tag);
+    const node = d.createElementNS(SVG_NS, shape.tag);
     for (const [k, v] of Object.entries(shape.attrs)) {
       node.setAttribute(k, String(v));
     }
@@ -159,7 +161,7 @@ export function renderIssueTypeIcon(
   el.empty();
   const safe = safeImageUrl(iconUrl);
   if (safe) {
-    const img = document.createElement("img");
+    const img = createEl("img");
     img.src = safe;
     img.alt = name ?? "issue type";
     img.className = "jira-icon-img";
@@ -225,7 +227,7 @@ export function renderPriorityIcon(
   el.empty();
   const safe = safeImageUrl(iconUrl);
   if (safe) {
-    const img = document.createElement("img");
+    const img = createEl("img");
     img.src = safe;
     img.alt = name ?? "priority";
     img.className = "jira-icon-img";

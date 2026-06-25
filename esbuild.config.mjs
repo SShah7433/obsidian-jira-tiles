@@ -16,7 +16,7 @@
 
 import esbuild from "esbuild";
 import process from "node:process";
-import builtins from "builtin-modules";
+import { builtinModules } from "node:module";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -51,7 +51,8 @@ const externalModules = [
   "@lezer/common",
   "@lezer/highlight",
   "@lezer/lr",
-  ...builtins,
+  ...builtinModules,
+  ...builtinModules.map((m) => `node:${m}`),
 ];
 
 /* -------------------------------------------------------------------------- */

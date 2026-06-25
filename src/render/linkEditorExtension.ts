@@ -32,6 +32,7 @@ import {
 import type { RenderContext } from "./tile";
 import { renderInto } from "./tile";
 import { issueKeyFromStandaloneLine } from "./parseUrl";
+import { createEl } from "./dom";
 import type { PluginSettings } from "../settings/types";
 
 /** Dependencies the extension needs from the host plugin. */
@@ -61,7 +62,7 @@ class JiraTileWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const container = document.createElement("div");
+    const container = createEl("div");
     container.addClass("jira-tile-lp-widget");
     const settings = this.deps.getSettings();
     void renderInto(

@@ -1,7 +1,7 @@
 {
   "id": "jira-tiles",
   "name": "Jira Tiles",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.11.4",
   "description": "Embed live Atlassian Jira Cloud issues as rich tiles in your notes via code blocks or auto-linked issue URLs. Mobile-friendly.",
   "author": "Sidd Shah",

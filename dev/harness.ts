@@ -25,7 +25,7 @@ import {
   renderResolvedTile,
   type DisplayOptions,
 } from "../src/render/tile";
-import { parseBlock, InvalidJiraBlockError } from "../src/render/parseBlock";
+import { InvalidJiraBlockError } from "../src/render/parseBlock";
 import type { JiraIssue } from "../src/jira/types";
 import { DEFAULT_SETTINGS } from "../src/settings/defaults";
 import type { PluginSettings } from "../src/settings/types";

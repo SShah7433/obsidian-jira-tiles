@@ -135,9 +135,9 @@ export class JiraClient {
     // for a soft timeout. The underlying request will continue but the caller
     // will see a timeout error. We clear the timer once the request settles so
     // we don't leave a dangling timeout firing into the void.
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: number | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(
+      timer = window.setTimeout(
         () =>
           reject(
             new JiraApiError(
@@ -161,7 +161,7 @@ export class JiraClient {
         timeout,
       ]);
     } finally {
-      if (timer) clearTimeout(timer);
+      if (timer) window.clearTimeout(timer);
     }
   }
 

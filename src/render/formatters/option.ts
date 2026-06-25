@@ -4,9 +4,10 @@
  */
 
 import type { JiraOption } from "../../jira/types";
+import { createFragment, doc } from "../dom";
 
 export function formatOption(option: JiraOption): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  frag.append(document.createTextNode(option.value ?? "—"));
+  const frag = createFragment();
+  frag.append(doc().createTextNode(option.value ?? "—"));
   return frag;
 }

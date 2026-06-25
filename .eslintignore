@@ -1,0 +1,20 @@
+# Lint only the shipped plugin source (src/). Everything below is either not
+# bundled into the published plugin or is a standalone non-Obsidian context.
+
+# Dependencies and build output
+node_modules/
+main.js
+dev/dist/
+coverage/
+
+# Dev preview harness — a standalone browser app, not part of the published
+# plugin (excluded via .npmignore). It legitimately uses fetch/innerHTML and
+# the plain `document` global because it does NOT run inside Obsidian.
+dev/
+
+# Tests run under jsdom + ts-jest, not Obsidian.
+tests/
+
+# Build tooling
+esbuild.config.mjs
+jest.config.cjs

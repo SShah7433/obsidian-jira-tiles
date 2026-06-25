@@ -10,12 +10,13 @@
  */
 
 import type { JiraSprint } from "../../jira/types";
+import { createEl, createFragment, doc } from "../dom";
 
 export function formatSprintArray(sprints: JiraSprint[]): DocumentFragment {
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
   sprints.forEach((sprint, idx) => {
-    if (idx > 0) frag.append(document.createTextNode(", "));
-    const span = document.createElement("span");
+    if (idx > 0) frag.append(doc().createTextNode(", "));
+    const span = createEl("span");
     span.className = "jira-sprint";
     span.textContent = sprint.name ?? "(unnamed)";
     if (sprint.state === "active") span.classList.add("jira-sprint--active");

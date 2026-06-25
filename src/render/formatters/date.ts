@@ -4,9 +4,11 @@
  * a `title` attribute for hover.
  */
 
+import { createEl, createFragment } from "../dom";
+
 export function formatDate(iso: string): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  const span = document.createElement("span");
+  const frag = createFragment();
+  const span = createEl("span");
   span.title = iso;
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) {

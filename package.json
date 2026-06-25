@@ -21,9 +21,10 @@
   "author": "Sidd Shah",
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/state": "^6.0.0",
+    "@codemirror/view": "^6.0.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.0",
-    "builtin-modules": "^3.3.0",
     "esbuild": "^0.20.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",

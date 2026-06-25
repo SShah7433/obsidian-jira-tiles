@@ -96,10 +96,12 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         "toggles — no credential values.",
     });
     const ackBtn = banner.createEl("button", { text: "Got it" });
-    ackBtn.addEventListener("click", async () => {
-      this.plugin.settings.storageWarningAcknowledged = true;
-      await this.plugin.saveSettings();
-      this.display();
+    ackBtn.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.storageWarningAcknowledged = true;
+        await this.plugin.saveSettings();
+        this.display();
+      })();
     });
   }
 
@@ -248,7 +250,7 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         .addButton((btn) =>
           btn
             .setButtonText("Disconnect")
-            .setWarning()
+            .setDestructive()
             .onClick(async () => {
               this.plugin.settings.authMethod = "none";
               await this.plugin.saveSettings();
@@ -395,7 +397,6 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         slider
           .setLimits(1, MAX_CACHE_TTL_MINUTES, 1)
           .setValue(this.plugin.settings.cacheTtlMinutes)
-          .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.cacheTtlMinutes = value;
             await this.plugin.saveSettings();

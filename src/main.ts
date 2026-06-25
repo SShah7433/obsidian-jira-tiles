@@ -34,9 +34,10 @@ import { buildCommands } from "./commands";
  * environments.
  */
 function openExternalUrl(url: string): void {
-  // Try Electron first — only available on desktop.
+  // Try Electron first — only available on desktop. We read the Electron
+  // module via the renderer's `window.require` (Obsidian desktop exposes it);
+  // this is a runtime lookup, not a bundled CommonJS import.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const electron = (window as { require?: (m: string) => unknown }).require?.(
       "electron",
     ) as { shell?: { openExternal?: (u: string) => Promise<void> } } | undefined;
@@ -107,7 +108,7 @@ export default class JiraTilesPlugin extends Plugin {
     }
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     this.cache?.invalidate();
   }
 
