@@ -83,26 +83,25 @@ describe("migrateSecretsIfNeeded", () => {
     expect(settings.secretsMigrationComplete).toBe(true);
   });
 
-  it("drops vestigial OAuth state and removes any cached OAuth secrets", async () => {
+  it("drops vestigial OAuth state from settings", async () => {
     // Older builds wrote `oauth: {...}` and `authMethod: "oauth"` into
-    // settings, plus access/refresh tokens into SecretStorage. The
-    // migration now removes all of that.
+    // settings. The migration removes the OAuth block and resets the auth
+    // method. (It cannot delete the old SecretStorage entries — the API has
+    // no delete — but the legacy IDs were invalid and never persisted, so
+    // there's nothing to clean up there.)
     const legacy = {
       ...DEFAULT_SETTINGS,
       authMethod: "oauth",
       oauth: {
-        accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
-        refreshTokenSecretName: INTERNAL_SECRETS.oauthRefreshToken,
+        accessTokenSecretName: "jira-tiles-oauth-access-token",
+        refreshTokenSecretName: "jira-tiles-oauth-refresh-token",
         expiresAt: 1234,
         cloudId: "c",
         siteUrl: "https://x.atlassian.net",
         siteName: "X",
       },
     } as unknown as PluginSettings;
-    const { service, store } = fakeSecrets();
-    // Seed the SecretStorage with the previously-stored OAuth secrets.
-    await service.set(INTERNAL_SECRETS.oauthAccessToken, "AT-old");
-    await service.set(INTERNAL_SECRETS.oauthRefreshToken, "RT-old");
+    const { service } = fakeSecrets();
 
     const result = await migrateSecretsIfNeeded(legacy, service);
 
@@ -111,9 +110,6 @@ describe("migrateSecretsIfNeeded", () => {
     expect(result.message).toMatch(/OAuth support was removed/);
     expect((legacy as unknown as { oauth?: unknown }).oauth).toBeUndefined();
     expect(legacy.authMethod).toBe("none");
-    // SecretStorage cleanup.
-    expect(store.has(INTERNAL_SECRETS.oauthAccessToken)).toBe(false);
-    expect(store.has(INTERNAL_SECRETS.oauthRefreshToken)).toBe(false);
   });
 
   it("flags ephemeral=true when SecretStorage is unavailable", async () => {

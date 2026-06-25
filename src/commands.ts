@@ -1,13 +1,16 @@
 /**
  * Command palette commands.
  *
- * Registered from `main.ts` during onload. Pure functions returning command
- * descriptors so they can be unit-tested without the full plugin instance.
+ * Registered from `main.ts` during onload. `buildCommands` returns plain
+ * descriptors so the wiring can be unit-tested without a full plugin
+ * instance. Commands that need an editor use `editorCheckCallback` per the
+ * Obsidian guidelines.
  */
 
-import { type App, MarkdownView, Notice } from "obsidian";
+import { type App, type Editor, type MarkdownFileInfo, type MarkdownView, Notice } from "obsidian";
 import type { IssueCache } from "./cache/issueCache";
 import { ISSUE_KEY_PATTERN } from "./render/parseBlock";
+import { IssueKeyModal } from "./settings/IssueKeyModal";
 
 /** Minimal slice of the plugin object the commands need. */
 export interface CommandsContext {
@@ -15,35 +18,54 @@ export interface CommandsContext {
   cache: IssueCache;
 }
 
-/** Single command descriptor matching Obsidian's `Plugin.addCommand` shape. */
+/**
+ * Command descriptor. Either a plain `callback` (runs unconditionally) or an
+ * `editorCheckCallback` (runs only with an active Markdown editor), matching
+ * Obsidian's `Plugin.addCommand` shape.
+ */
 export interface CommandDescriptor {
   id: string;
   name: string;
-  callback: () => void | Promise<void>;
+  callback?: () => void | Promise<void>;
+  editorCheckCallback?: (
+    checking: boolean,
+    editor: Editor,
+    ctx: MarkdownView | MarkdownFileInfo,
+  ) => boolean | void;
 }
 
 /** Build the canonical command list. */
-export function buildCommands(ctx: CommandsContext): CommandDescriptor[] {
+export function buildCommands(cmdCtx: CommandsContext): CommandDescriptor[] {
   return [
     {
       id: "insert-issue-tile",
-      name: "Insert Jira issue tile",
-      callback: () => insertTileCommand(ctx),
+      name: "Insert issue tile",
+      editorCheckCallback: (checking, editor) => {
+        if (checking) return true;
+        promptForKey(cmdCtx.app, (key) => {
+          editor.replaceSelection(`\n\`\`\`jira\n${key}\n\`\`\`\n`);
+        });
+        return true;
+      },
     },
     {
       id: "refresh-tiles-current-note",
-      name: "Refresh Jira tiles in current note",
-      callback: () => refreshCurrentNoteCommand(ctx),
+      name: "Refresh tiles in current note",
+      editorCheckCallback: (checking, editor, viewCtx) => {
+        if (checking) return true;
+        refreshCurrentNote(cmdCtx, editor, viewCtx);
+        return true;
+      },
     },
     {
       id: "refresh-all-tiles",
-      name: "Refresh all Jira tiles (clear cache)",
-      callback: () => refreshAllCommand(ctx),
+      name: "Refresh all tiles",
+      callback: () => refreshAllCommand(cmdCtx),
     },
     {
       id: "clear-cache",
-      name: "Clear Jira cache",
-      callback: () => clearCacheCommand(ctx),
+      name: "Clear cache",
+      callback: () => clearCacheCommand(cmdCtx),
     },
   ];
 }
@@ -53,55 +75,37 @@ export function buildCommands(ctx: CommandsContext): CommandDescriptor[] {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Insert a `\`\`\`jira PROJ-123 \`\`\`` block at the cursor position. Prompts
- * for the key via window.prompt — Obsidian doesn't expose a built-in inline
- * input, and a full Modal would be overkill for this single-field flow.
+ * Prompt for an issue key using a small modal (works on desktop and mobile,
+ * unlike `window.prompt`). Calls `onSubmit` with a validated, uppercased key.
  */
-export async function insertTileCommand(ctx: CommandsContext): Promise<void> {
-  const view = ctx.app.workspace.getActiveViewOfType(MarkdownView);
-  if (!view) {
-    new Notice("Open a Markdown note first.");
-    return;
-  }
-  const raw = window.prompt("Jira issue key (e.g. PROJ-123)?", "");
-  if (raw === null) return; // cancelled
-  const key = raw.trim().toUpperCase();
-  if (!ISSUE_KEY_PATTERN.test(key)) {
-    new Notice("Invalid issue key. Expected format: PROJ-123.");
-    return;
-  }
-  const editor = view.editor;
-  const block = `\n\`\`\`jira\n${key}\n\`\`\`\n`;
-  editor.replaceSelection(block);
+export function promptForKey(
+  app: App,
+  onSubmit: (key: string) => void,
+): void {
+  new IssueKeyModal(app, onSubmit).open();
 }
 
 /**
  * Refresh tiles in the active note by invalidating their cache entries and
- * triggering a re-render. Obsidian's MarkdownPostProcessor does not directly
- * expose "re-run for current view", so we toggle the active leaf via
- * `workspace.activeLeaf.rebuildView()` if available, otherwise we ask the user
- * to click refresh on the affected tile.
+ * asking Obsidian to rebuild the leaf so the code-block processor re-runs.
  */
-export async function refreshCurrentNoteCommand(
-  ctx: CommandsContext,
-): Promise<void> {
-  const view = ctx.app.workspace.getActiveViewOfType(MarkdownView);
-  if (!view) {
-    new Notice("Open a Markdown note first.");
-    return;
-  }
-  const text = view.editor.getValue();
+export function refreshCurrentNote(
+  cmdCtx: CommandsContext,
+  editor: Editor,
+  viewCtx: MarkdownView | MarkdownFileInfo,
+): void {
+  const text = editor.getValue();
   const keys = extractIssueKeysFromMarkdown(text);
-  for (const key of keys) ctx.cache.invalidate(key);
-  // Force a re-render by toggling the source/preview state.
-  // (Obsidian re-runs the post processors when the leaf is rebuilt.)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leaf = (view as any).leaf;
-  if (leaf?.rebuildView) leaf.rebuildView();
+  for (const key of keys) cmdCtx.cache.invalidate(key);
+  // `rebuildView` re-runs Markdown post-processors. It's available on
+  // WorkspaceLeaf at runtime; guard defensively in case it's absent.
+  const leaf = (viewCtx as unknown as { leaf?: { rebuildView?: () => void } })
+    .leaf;
+  leaf?.rebuildView?.();
   new Notice(
     keys.length === 0
       ? "No Jira blocks found in this note."
-      : `Invalidated ${keys.length} tile${keys.length === 1 ? "" : "s"}.`,
+      : `Refreshed ${keys.length} tile${keys.length === 1 ? "" : "s"}.`,
   );
 }
 
@@ -111,7 +115,7 @@ export function refreshAllCommand(ctx: CommandsContext): void {
   new Notice("Jira tile cache cleared. Tiles will refresh on next render.");
 }
 
-/** Alias: same behavior as refreshAll for now. */
+/** Invalidate the entire cache (palette alias). */
 export function clearCacheCommand(ctx: CommandsContext): void {
   ctx.cache.invalidate();
   new Notice("Jira cache cleared.");

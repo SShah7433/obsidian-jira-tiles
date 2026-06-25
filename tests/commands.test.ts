@@ -7,9 +7,10 @@ import {
   clearCacheCommand,
   extractIssueKeysFromMarkdown,
   refreshAllCommand,
+  refreshCurrentNote,
 } from "../src/commands";
 import { IssueCache } from "../src/cache/issueCache";
-import type { App } from "obsidian";
+import type { App, Editor, MarkdownView } from "obsidian";
 
 describe("extractIssueKeysFromMarkdown", () => {
   it("returns an empty list when there are no jira blocks", () => {
@@ -76,9 +77,26 @@ describe("buildCommands", () => {
       "clear-cache",
     ]);
     for (const c of cmds) {
-      expect(typeof c.callback).toBe("function");
+      // Each command exposes exactly one of callback / editorCheckCallback.
+      const hasCallback = typeof c.callback === "function";
+      const hasEditorCb = typeof c.editorCheckCallback === "function";
+      expect(hasCallback || hasEditorCb).toBe(true);
       expect(c.name.length).toBeGreaterThan(0);
+      // Command names must not repeat the plugin name (Obsidian prefixes it).
+      expect(c.name.toLowerCase()).not.toContain("jira tiles");
     }
+  });
+
+  it("uses editorCheckCallback for the editor-dependent commands", () => {
+    const cache = new IssueCache(() => 60_000);
+    const cmds = buildCommands({ app: fakeApp(), cache });
+    const insert = cmds.find((c) => c.id === "insert-issue-tile");
+    const refreshNote = cmds.find((c) => c.id === "refresh-tiles-current-note");
+    expect(typeof insert?.editorCheckCallback).toBe("function");
+    expect(typeof refreshNote?.editorCheckCallback).toBe("function");
+    // In `checking` mode they report availability without side effects.
+    expect(insert?.editorCheckCallback?.(true, {} as never, {} as never)).toBe(true);
+    expect(refreshNote?.editorCheckCallback?.(true, {} as never, {} as never)).toBe(true);
   });
 });
 
@@ -98,5 +116,66 @@ describe("clearCacheCommand", () => {
     await cache.getOrFetch("PROJ-1", async () => ({ key: "PROJ-1", fields: {} }));
     clearCacheCommand({ app: {} as App, cache });
     expect(cache.size()).toBe(0);
+  });
+});
+
+describe("refreshCurrentNote", () => {
+  function fakeEditor(value: string): Editor {
+    return { getValue: () => value } as unknown as Editor;
+  }
+
+  it("invalidates cached entries for keys found in the note and rebuilds the view", async () => {
+    const cache = new IssueCache(() => 60_000);
+    await cache.getOrFetch("PROJ-1", async () => ({ key: "PROJ-1", fields: {} }));
+    await cache.getOrFetch("PROJ-2", async () => ({ key: "PROJ-2", fields: {} }));
+    expect(cache.size()).toBe(2);
+
+    let rebuilt = false;
+    const view = {
+      leaf: { rebuildView: () => (rebuilt = true) },
+    } as unknown as MarkdownView;
+
+    refreshCurrentNote(
+      { app: {} as App, cache },
+      fakeEditor("```jira\nPROJ-1\n```\n```jira\nPROJ-2\n```"),
+      view,
+    );
+
+    expect(cache.size()).toBe(0);
+    expect(rebuilt).toBe(true);
+  });
+
+  it("does nothing harmful when the note has no jira blocks", () => {
+    const cache = new IssueCache(() => 60_000);
+    const view = { leaf: {} } as unknown as MarkdownView;
+    expect(() =>
+      refreshCurrentNote({ app: {} as App, cache }, fakeEditor("no blocks"), view),
+    ).not.toThrow();
+  });
+});
+
+describe("insert command editorCheckCallback", () => {
+  function fakeApp(): App {
+    return {
+      workspace: {
+        getActiveViewOfType: () => null,
+        on: () => ({}),
+        off: () => undefined,
+      },
+    } as unknown as App;
+  }
+
+  it("reports availability in checking mode without inserting", () => {
+    const cache = new IssueCache(() => 60_000);
+    const insert = buildCommands({ app: fakeApp(), cache }).find(
+      (c) => c.id === "insert-issue-tile",
+    );
+    let replaced = false;
+    const editor = {
+      replaceSelection: () => (replaced = true),
+    } as unknown as Editor;
+    const result = insert?.editorCheckCallback?.(true, editor, {} as never);
+    expect(result).toBe(true);
+    expect(replaced).toBe(false);
   });
 });

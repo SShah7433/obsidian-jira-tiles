@@ -82,16 +82,19 @@ export async function migrateSecretsIfNeeded(
         tokenSecretName: name,
       };
       migratedSomething = true;
-      console.log("[jira-tiles] migrated API token into SecretStorage");
-    } catch (err) {
-      console.error("[jira-tiles] failed to migrate API token:", err);
+    } catch {
+      // If the secret store rejects the value (e.g. unavailable), leave the
+      // legacy field in place so the next load can retry; do not flip the
+      // migration-complete flag for the API-token arm.
     }
   }
 
   /* OAuth state ------------------------------------------------------- */
 
   // OAuth is no longer supported. If we find any vestige of an OAuth state,
-  // drop it cleanly so the saved settings stop carrying stale fields.
+  // drop it cleanly so the saved settings stop carrying stale fields. We
+  // can't delete the old access/refresh secrets (SecretStorage has no delete
+  // API and the legacy IDs were invalid anyway), so we only clean settings.
   const settingsWithLegacyOauth = settings as unknown as {
     oauth?: unknown;
     authMethod?: string;
@@ -103,18 +106,6 @@ export async function migrateSecretsIfNeeded(
     }
     oauthDropped = true;
     migratedSomething = true;
-    // Best-effort cleanup of any access/refresh secrets that earlier
-    // versions of the plugin wrote into SecretStorage. Removing here keeps
-    // SecretStorage tidy; failure is non-fatal.
-    try {
-      await secrets.remove(INTERNAL_SECRETS.oauthAccessToken);
-      await secrets.remove(INTERNAL_SECRETS.oauthRefreshToken);
-    } catch (err) {
-      console.warn(
-        "[jira-tiles] failed to remove legacy OAuth secrets (non-fatal):",
-        err,
-      );
-    }
   }
 
   settings.secretsMigrationComplete = true;

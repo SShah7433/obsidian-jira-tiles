@@ -1,48 +1,53 @@
 /**
  * SecretsService — wraps Obsidian's SecretStorage API with a graceful fallback.
  *
- * Why a wrapper:
- *   - The SecretStorage API was added in Obsidian 1.5+. Older versions don't
- *     expose `app.secretStorage`, so we degrade to in-memory storage with a
- *     loud warning rather than crash. The fallback's secrets vanish on
- *     reload — that's intentional: we don't want to silently re-introduce
- *     plaintext storage if SecretStorage is unavailable.
- *   - Centralizes naming conventions for plugin-internal secrets (OAuth
- *     access/refresh tokens). User-facing secrets (the API token) use a
- *     name the user picks via the SecretComponent.
- *   - Hides the slightly clunky "name vs value" distinction from callers
- *     that just want "give me the token for this state object".
+ * Obsidian's `app.secretStorage` (added in 1.11.4) is a synchronous key/value
+ * store for sensitive data, kept local to the install and excluded from sync.
+ * See https://docs.obsidian.md/Plugins/Guides/Store+secrets.
  *
- * Threat model recap:
- *   - data.json now contains only site URL, email, feature toggles, and
- *     secret *names* — no credentials. Anyone with vault filesystem access
- *     can see what secrets the plugin uses but not the values.
- *   - Obsidian's SecretStorage is local to the install and not synced.
- *     See https://docs.obsidian.md/plugins/guides/secret-storage.
+ * Why a wrapper:
+ *   - Older Obsidian builds don't expose `app.secretStorage`, so we degrade to
+ *     in-memory storage with a warning rather than crash. The fallback's
+ *     secrets vanish on reload — that's intentional: we don't want to silently
+ *     re-introduce plaintext storage if SecretStorage is unavailable.
+ *   - Centralizes the secret-ID naming convention and validation. The real API
+ *     requires "lowercase alphanumeric with optional dashes" IDs and throws on
+ *     anything else, so we normalize/validate before calling it.
+ *   - Presents a small async surface (get/set/remove) so callers don't depend
+ *     on whether the underlying store is sync or async.
+ *
+ * Note on deletion: the real SecretStorage API exposes only setSecret/getSecret/
+ * listSecrets — there is no delete. `remove()` therefore overwrites the entry
+ * with an empty string on the real backend (and deletes from the in-memory
+ * fallback). Callers should treat "empty" and "absent" identically.
  */
 
 import type { App } from "obsidian";
 
 /**
- * Subset of Obsidian's SecretStorage API the plugin needs. Typed locally
- * because older @types/obsidian may not declare it. `app.secretStorage`
- * is checked at runtime in the constructor.
+ * Subset of Obsidian's SecretStorage API the plugin uses. The real methods are
+ * synchronous; we keep the typing permissive (sync or Promise) so the wrapper
+ * is robust to minor API evolution.
  */
 export interface SecretStorageApi {
-  getSecret(name: string): string | null | undefined | Promise<string | null | undefined>;
-  setSecret?(name: string, value: string): void | Promise<void>;
-  deleteSecret?(name: string): void | Promise<void>;
+  getSecret(id: string): string | null | undefined | Promise<string | null | undefined>;
+  setSecret(id: string, value: string): void | Promise<void>;
 }
 
-/** Stable internal secret names — used for plugin-managed (OAuth) secrets. */
+/**
+ * Stable internal secret IDs. MUST be lowercase alphanumeric with optional
+ * dashes (no colons, dots, or other punctuation) — the SecretStorage API
+ * throws on invalid IDs.
+ */
 export const INTERNAL_SECRETS = {
-  /** Default name for a freshly-saved API token before the user renames it. */
-  defaultApiToken: "jira-tiles:api-token",
-  /** OAuth access token (rotated frequently). */
-  oauthAccessToken: "jira-tiles:oauth-access-token",
-  /** OAuth refresh token (rotated by Atlassian on every refresh). */
-  oauthRefreshToken: "jira-tiles:oauth-refresh-token",
+  /** Default ID for a freshly-saved API token. */
+  defaultApiToken: "jira-tiles-api-token",
 } as const;
+
+/** Validate a secret ID against the SecretStorage rules (lowercase a-z0-9 + dashes). */
+export function isValidSecretId(id: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(id);
+}
 
 /**
  * Decision on how the SecretsService should behave for the current Obsidian
@@ -67,14 +72,6 @@ export class SecretsService {
     } else {
       this.storage = null;
       this.backend = "memory-fallback";
-      // Visible in DevTools the very first load. Surfaced again in the
-      // SettingsTab so users see it without opening the console.
-      console.warn(
-        "[jira-tiles] Obsidian SecretStorage API unavailable — falling " +
-          "back to in-memory secret store. Tokens will need to be re-entered " +
-          "after each reload. Update Obsidian to 1.5 or newer for proper " +
-          "secret storage.",
-      );
     }
   }
 
@@ -84,66 +81,62 @@ export class SecretsService {
   }
 
   /**
-   * Read a secret by name. Returns `null` if no secret with that name exists.
-   * Empty/whitespace name -> null (treated as "not configured").
+   * Read a secret by ID. Returns `null` if no secret with that ID exists.
+   * Empty/whitespace ID -> null (treated as "not configured").
    */
-  async get(name: string | undefined | null): Promise<string | null> {
-    if (!name || !name.trim()) return null;
+  async get(id: string | undefined | null): Promise<string | null> {
+    if (!id || !id.trim()) return null;
     if (this.storage) {
       try {
-        const v = await this.storage.getSecret(name);
+        const v = await this.storage.getSecret(id);
         return v ?? null;
-      } catch (err) {
-        console.error(
-          "[jira-tiles] SecretStorage.getSecret threw for name:",
-          name,
-          err,
-        );
+      } catch {
+        // The store throws on invalid IDs; treat as "not found".
         return null;
       }
     }
-    return this.memory.get(name) ?? null;
+    return this.memory.get(id) ?? null;
   }
 
   /**
-   * Write a secret value under the given name. If the runtime has no
+   * Write a secret value under the given ID. If the runtime has no
    * SecretStorage and we're in memory-fallback mode, the value is held until
-   * reload only — the user is responsible for re-entering after reload.
+   * reload only.
+   *
+   * @throws Error if the ID is not a valid SecretStorage ID.
    */
-  async set(name: string, value: string): Promise<void> {
-    if (!name || !name.trim()) {
-      throw new Error("SecretsService.set: secret name must be non-empty.");
+  async set(id: string, value: string): Promise<void> {
+    if (!id || !id.trim()) {
+      throw new Error("SecretsService.set: secret id must be non-empty.");
     }
-    if (this.storage?.setSecret) {
-      await this.storage.setSecret(name, value);
-      return;
-    }
-    if (this.storage && !this.storage.setSecret) {
-      // Read-only SecretStorage (extremely unlikely but possible if the API
-      // surface is in flux). Surface clearly rather than swallow.
+    if (!isValidSecretId(id)) {
       throw new Error(
-        "Obsidian SecretStorage exposed getSecret but not setSecret; " +
-          "cannot persist the secret. Update Obsidian.",
+        `SecretsService.set: invalid secret id "${id}" (must be lowercase ` +
+          `alphanumeric with optional dashes).`,
       );
     }
-    this.memory.set(name, value);
+    if (this.storage) {
+      await this.storage.setSecret(id, value);
+      return;
+    }
+    this.memory.set(id, value);
   }
 
-  /** Remove a secret by name. Idempotent — missing names are a no-op. */
-  async remove(name: string | undefined | null): Promise<void> {
-    if (!name) return;
-    if (this.storage?.deleteSecret) {
+  /**
+   * Remove a secret by ID. The real SecretStorage has no delete operation, so
+   * on that backend we overwrite with an empty string. In the in-memory
+   * fallback we delete the entry. Idempotent — missing IDs are a no-op.
+   */
+  async remove(id: string | undefined | null): Promise<void> {
+    if (!id || !isValidSecretId(id)) return;
+    if (this.storage) {
       try {
-        await this.storage.deleteSecret(name);
-      } catch (err) {
-        console.error(
-          "[jira-tiles] SecretStorage.deleteSecret threw for name:",
-          name,
-          err,
-        );
+        await this.storage.setSecret(id, "");
+      } catch {
+        // Non-fatal — leaving a stale entry is acceptable.
       }
       return;
     }
-    this.memory.delete(name);
+    this.memory.delete(id);
   }
 }

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.1.0] — Unreleased
 
+### Fixed
+
+- Secret storage IDs now use valid identifiers (`jira-tiles-api-token`).
+  The previous IDs contained a colon, which Obsidian's SecretStorage API
+  rejects — `setSecret` would have thrown, breaking token storage.
+- `minAppVersion` corrected to `1.11.4` (the release that introduced the
+  SecretStorage / SecretComponent APIs the plugin relies on).
+- "Clear cache" in settings now actually clears the cache (was a no-op).
+- Image URLs from the Jira API (avatars, issue-type/priority icons) are
+  validated against an http(s) allowlist before being used as `<img src>`.
+
+### Changed
+
+- Replaced inline `.style` assignments with CSS classes (sprint state,
+  initials-avatar colours, issue-type chip colours) per Obsidian guidelines.
+- Settings headings now use `Setting().setHeading()` instead of raw `<h2>`;
+  the first (Connection) section no longer has a top-level heading.
+- Editor-dependent commands ("Insert issue tile", "Refresh tiles in current
+  note") use `editorCheckCallback`; the insert flow uses a Modal instead of
+  `window.prompt` (which is unreliable on mobile). Command names no longer
+  repeat the plugin name.
+- Removed debug `console.log`/`console.warn` calls; only genuine errors are
+  logged now.
+- SVG icons are built via the DOM API rather than `innerHTML`.
+
 ### Removed
 
 - **OAuth 2.0 (3LO) support has been removed.** The Atlassian token
@@ -25,7 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Secrets now live in Obsidian's SecretStorage** instead of plain text
   in `data.json`. API tokens are persisted via `app.secretStorage`
-  (Obsidian 1.5+). The plugin's `data.json` carries only site URL,
+  (Obsidian 1.11.4+). The plugin's `data.json` carries only site URL,
   email, feature toggles, and the *name* of the secret — no credential
   values. A one-time migration on upgrade moves any pre-0.2.0 plain-text
   tokens into SecretStorage and shows a Notice when it runs. Plugins on

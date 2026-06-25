@@ -115,4 +115,9 @@ export default class JiraTilesPlugin extends Plugin {
   onAuthChanged(): void {
     this.cache?.invalidate();
   }
+
+  /** Drop all cached issue data (used by the "Clear cache" setting). */
+  clearCache(): void {
+    this.cache?.invalidate();
+  }
 }

@@ -2,8 +2,8 @@
   "id": "obsidian-jira-tiles",
   "name": "Jira Tiles",
   "version": "0.1.0",
-  "minAppVersion": "1.4.0",
-  "description": "Embed live Jira issue tiles in your notes via fenced code blocks. Supports Atlassian Cloud with OAuth (PKCE) and API token authentication. Mobile-friendly.",
+  "minAppVersion": "1.11.4",
+  "description": "Embed live Atlassian Jira Cloud issues as rich tiles in your notes using fenced code blocks. Mobile-friendly.",
   "author": "Sidd Shah",
   "authorUrl": "https://github.com/siddshah",
   "isDesktopOnly": false

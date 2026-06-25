@@ -30,7 +30,7 @@ The plugin replaces that block with a rich tile showing:
   regardless of how you sign in.
 - **SecretStorage.** Token values live in Obsidian's
   [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage)
-  (1.5+); `data.json` only carries the *name* of the secret.
+  (1.11.4+); `data.json` only carries the *name* of the secret.
 - **Smart formatters.** Custom fields auto-render as user, sprint, option,
   version, date, number, boolean — falling back to a JSON snippet — without
   per-field configuration for common types.
@@ -87,7 +87,7 @@ In *Settings → Jira Tiles*, configure your Atlassian API token:
 
 Tokens are stored in Obsidian's
 [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage)
-(Obsidian 1.5+). The plugin's `data.json` carries only your site URL,
+(Obsidian 1.11.4+). The plugin's `data.json` carries only your site URL,
 email, feature toggles, and the *name* of the secret — no credential
 values.
 
@@ -98,7 +98,7 @@ API token afterwards to invalidate the previously-stored value.
 Recommendations:
 
 - Rotate API tokens regularly.
-- Update Obsidian to 1.5 or newer if you see the "secret storage
+- Update Obsidian to 1.11.4 or newer if you see the "secret storage
   unavailable" warning in settings — without that API the plugin can only
   hold tokens in memory.
 

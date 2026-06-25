@@ -7,7 +7,7 @@ read this document before configuring the plugin.
 
 The plugin uses Obsidian's
 [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage) API
-(introduced in Obsidian 1.5+). The Atlassian API token never touches the
+(introduced in Obsidian 1.11.4+). The Atlassian API token never touches the
 plugin's `data.json` — only the *name* of the SecretStorage entry is
 persisted there. The actual value lives in Obsidian's per-install secret
 store, which is local to your machine and is **not synced**.
@@ -17,7 +17,7 @@ contains:
 
 - Site URL, email
 - Display preferences and feature toggles
-- The name that points at the SecretStorage entry (e.g. `jira-tiles:api-token`)
+- The name that points at the SecretStorage entry (e.g. `jira-tiles-api-token`)
 
 So if someone reads your `data.json`, they see metadata about which secret
 the plugin uses, but not the secret value.
@@ -28,7 +28,7 @@ If your Obsidian build does not expose the SecretStorage API, the plugin
 falls back to an **in-memory secret store**. Secrets entered while running
 on a fallback build will not survive an Obsidian reload — you'll need to
 re-enter them. The plugin shows a clear warning in settings when this is in
-effect. Update Obsidian to 1.5 or newer for persistent secure storage.
+effect. Update Obsidian to 1.11.4 or newer for persistent secure storage.
 
 ### Migration from earlier plugin versions
 

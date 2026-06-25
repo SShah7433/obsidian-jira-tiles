@@ -200,6 +200,51 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/* Deterministic colour palette for initials chips / avatars                  */
+/* --------------------------------------------------------------------------
+ * Keyed off a data-color-index (0-7) the formatter computes from a name hash,
+ * so colours stay stable per person/type without hardcoding styles in JS.
+ * ------------------------------------------------------------------------ */
+
+.jira-icon-chip,
+.jira-tile-avatar-initials {
+  color: #fff;
+}
+
+.jira-tile-avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.jira-icon-chip[data-color-index="0"],
+.jira-tile-avatar-initials[data-color-index="0"] { background: #0747a6; }
+.jira-icon-chip[data-color-index="1"],
+.jira-tile-avatar-initials[data-color-index="1"] { background: #5243aa; }
+.jira-icon-chip[data-color-index="2"],
+.jira-tile-avatar-initials[data-color-index="2"] { background: #bf2600; }
+.jira-icon-chip[data-color-index="3"],
+.jira-tile-avatar-initials[data-color-index="3"] { background: #ff8b00; }
+.jira-icon-chip[data-color-index="4"],
+.jira-tile-avatar-initials[data-color-index="4"] { background: #006644; }
+.jira-icon-chip[data-color-index="5"],
+.jira-tile-avatar-initials[data-color-index="5"] { background: #00a3bf; }
+.jira-icon-chip[data-color-index="6"],
+.jira-tile-avatar-initials[data-color-index="6"] { background: #403294; }
+.jira-icon-chip[data-color-index="7"],
+.jira-tile-avatar-initials[data-color-index="7"] { background: #974f0c; }
+
+/* -------------------------------------------------------------------------- */
+/* Sprint chips                                                               */
+/* -------------------------------------------------------------------------- */
+
+.jira-sprint--active { font-weight: 600; }
+.jira-sprint--future { font-style: italic; }
+.jira-sprint--closed { opacity: 0.6; }
+
+/* -------------------------------------------------------------------------- */
 /* Field grid                                                                 */
 /* -------------------------------------------------------------------------- */
 

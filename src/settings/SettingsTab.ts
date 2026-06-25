@@ -9,12 +9,13 @@
  *   - Advanced: clear cache.
  */
 
-import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice, SecretComponent } from "obsidian";
 import {
   DEFAULT_CACHE_TTL_MINUTES,
   MAX_CACHE_TTL_MINUTES,
 } from "../constants";
 import { normalizeSiteUrl } from "../auth/apiToken";
+import { INTERNAL_SECRETS } from "../auth/secrets";
 import type { CustomFieldConfig } from "./types";
 import { FieldPickerModal } from "./FieldPickerModal";
 
@@ -28,6 +29,8 @@ export interface JiraTilesPluginLike {
   saveSettings(): Promise<void>;
   /** Called by the tab when the active auth method changes so caches/state can reset. */
   onAuthChanged(): void;
+  /** Drop all cached issue data. */
+  clearCache(): void;
   /** Jira client — used by the field discovery picker. Optional for harnesses. */
   client?: import("../jira/client").JiraClient;
   /** Secret store handle — used to write the API token after the user enters it. */
@@ -71,8 +74,8 @@ export class JiraTilesSettingTab extends PluginSettingTab {
         text:
           "This Obsidian version does not expose the SecretStorage API. The " +
           "plugin is keeping your API token in memory only — you will need " +
-          "to re-enter it after every reload. Update Obsidian to 1.5 or newer " +
-          "to enable persistent secret storage.",
+          "to re-enter it after every reload. Update Obsidian to 1.11.4 or " +
+          "newer to enable persistent secret storage.",
       });
       return;
     }
@@ -101,14 +104,14 @@ export class JiraTilesSettingTab extends PluginSettingTab {
   }
 
   private renderConnectionSection(parent: HTMLElement): void {
-    parent.createEl("h2", { text: "Connection" });
+    // No heading for the first section per Obsidian guidelines — general
+    // settings sit at the top of the tab.
     parent.createEl("p", {
       cls: "setting-item-description",
       text:
         "Authenticate with an Atlassian API token. Generate one at " +
-        "https://id.atlassian.com/manage-profile/security/api-tokens — your " +
-        "regular Atlassian login (including SSO-linked accounts) can mint " +
-        "tokens.",
+        "id.atlassian.com under Security → API tokens — your regular " +
+        "Atlassian login (including SSO-linked accounts) can mint tokens.",
     });
 
     /**
@@ -220,11 +223,6 @@ export class JiraTilesSettingTab extends PluginSettingTab {
               if (!value) missing.push(`API token (secret "${partial.tokenSecretName}" not found)`);
             }
             if (missing.length > 0) {
-              console.log("[jira-tiles] activate failed; current apiToken:", {
-                siteUrl: partial.siteUrl,
-                email: partial.email,
-                tokenSecretName: partial.tokenSecretName,
-              });
               new Notice(
                 `Cannot activate — fix: ${missing.join(", ")}.`,
                 10_000,
@@ -264,12 +262,11 @@ export class JiraTilesSettingTab extends PluginSettingTab {
 
   /**
    * Render the API token field. Prefers Obsidian's `SecretComponent` when
-   * available (1.5+) — that lets users select an existing secret from
-   * SecretStorage or create a new one, and the persisted value is just the
-   * *name* of the secret. On older Obsidian versions, we fall back to a
-   * password-typed text input that writes via the plugin's own
-   * SecretsService (which itself falls back to in-memory storage when
-   * SecretStorage is unavailable).
+   * available — that lets users select an existing secret from SecretStorage
+   * or create a new one, and the persisted value is just the *name* of the
+   * secret. On older Obsidian versions without SecretStorage, we fall back to
+   * a password-typed text input that writes via the plugin's own
+   * SecretsService (in-memory storage that does not persist across reloads).
    */
   private renderApiTokenSecretField(
     parent: HTMLElement,
@@ -278,64 +275,43 @@ export class JiraTilesSettingTab extends PluginSettingTab {
       patch: Partial<import("./types").ApiTokenState>,
     ) => Promise<void>,
   ): void {
-    // Detect SecretComponent at runtime — it's not present in older
-    // @types/obsidian, and it may be missing on older runtimes.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const obsidianModule = require("obsidian") as {
-      SecretComponent?: new (
-        app: App,
-        el: HTMLElement,
-      ) => {
-        setValue(name: string): unknown;
-        onChange(cb: (name: string) => void): unknown;
-      };
-    };
-    const SecretComponent = obsidianModule.SecretComponent;
-
-    if (SecretComponent && this.plugin.app) {
-      const setting = new Setting(parent)
+    // SecretComponent + SecretStorage arrived together (1.11.4). Use the
+    // picker only when the secret store is actually available.
+    if (typeof SecretComponent === "function" && this.plugin.secrets?.isAvailable) {
+      new Setting(parent)
         .setName("API token")
         .setDesc(
-          "Pick an existing secret from Obsidian's SecretStorage or save a " +
+          "Pick an existing secret from Obsidian's secret storage or save a " +
             "new one. The token value is never written to data.json.",
+        )
+        .addComponent((el: HTMLElement) =>
+          new SecretComponent(this.plugin.app, el)
+            .setValue(initial.tokenSecretName)
+            .onChange(async (name: string) => {
+              await updateApiToken({ tokenSecretName: name });
+            }),
         );
-      // The Setting builder lacks `addComponent` on older type defs; use the
-      // public `controlEl` to mount the SecretComponent ourselves.
-      const controlEl = (setting as unknown as { controlEl?: HTMLElement }).controlEl;
-      if (controlEl) {
-        const sc = new SecretComponent(this.plugin.app, controlEl);
-        sc.setValue(initial.tokenSecretName);
-        sc.onChange(async (name: string) => {
-          await updateApiToken({ tokenSecretName: name });
-        });
-        return;
-      }
+      return;
     }
 
     // Fallback: password-typed text input. We write the value into the
     // plugin's SecretsService under the default name. This keeps the value
-    // out of data.json even on older runtimes.
+    // out of data.json even on older runtimes (in-memory only).
     new Setting(parent)
       .setName("API token")
       .setDesc(
-        "Generate at https://id.atlassian.com/manage-profile/security/api-tokens. " +
-          "(Your Obsidian version doesn't expose SecretStorage, so the value " +
-          "is held in this plugin's secret store.)",
+        "Your Obsidian version doesn't provide secret storage, so the token " +
+          "is held in memory only and must be re-entered after each reload. " +
+          "Update Obsidian to keep it stored securely.",
       )
       .addText((text) => {
         // Mask token input — the underlying input is reachable via inputEl.
         text.inputEl.type = "password";
         text
-          .setPlaceholder("ATATT...")
+          .setPlaceholder("Paste your API token")
           .setValue("")
           .onChange(async (value) => {
             const trimmed = value.trim();
-            // Late import to avoid a static dependency on the constants file
-            // from this rendering helper.
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const { INTERNAL_SECRETS } =
-              // eslint-disable-next-line @typescript-eslint/no-var-requires
-              require("../auth/secrets") as typeof import("../auth/secrets");
             const name = INTERNAL_SECRETS.defaultApiToken;
             if (this.plugin.secrets) {
               if (trimmed) {
@@ -351,7 +327,7 @@ export class JiraTilesSettingTab extends PluginSettingTab {
   }
 
   private renderDisplaySection(parent: HTMLElement): void {
-    parent.createEl("h2", { text: "Display" });
+    new Setting(parent).setName("Display").setHeading();
 
     const toggles: Array<[
       keyof Pick<
@@ -418,7 +394,7 @@ export class JiraTilesSettingTab extends PluginSettingTab {
   }
 
   private renderCustomFieldsSection(parent: HTMLElement): void {
-    parent.createEl("h2", { text: "Custom fields" });
+    new Setting(parent).setName("Custom fields").setHeading();
     parent.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -520,14 +496,14 @@ export class JiraTilesSettingTab extends PluginSettingTab {
   }
 
   private renderAdvancedSection(parent: HTMLElement): void {
-    parent.createEl("h2", { text: "Advanced" });
+    new Setting(parent).setName("Advanced").setHeading();
     new Setting(parent)
       .setName("Clear cache")
       .setDesc("Discard cached Jira responses; next render re-fetches.")
       .addButton((btn) =>
         btn.setButtonText("Clear").onClick(() => {
-          // Phase 2 hooks the cache here.
-          new Notice("Cache cleared.");
+          this.plugin.clearCache();
+          new Notice("Jira cache cleared.");
         }),
       );
   }

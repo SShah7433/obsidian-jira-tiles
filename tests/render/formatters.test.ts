@@ -86,7 +86,7 @@ describe("formatCustomField — user", () => {
 });
 
 describe("formatCustomField — sprint array", () => {
-  it("joins sprint names and applies state styles", () => {
+  it("joins sprint names and applies state classes", () => {
     const div = document.createElement("div");
     div.appendChild(
       formatCustomField([
@@ -98,9 +98,9 @@ describe("formatCustomField — sprint array", () => {
     expect(div.textContent).toContain("S42");
     const spans = Array.from(div.querySelectorAll("span"));
     const active = spans.find((s) => s.textContent === "S42");
-    expect(active?.style.fontWeight).toBe("600");
+    expect(active?.classList.contains("jira-sprint--active")).toBe(true);
     const closed = spans.find((s) => s.textContent === "S41");
-    expect(closed?.style.opacity).toBe("0.6");
+    expect(closed?.classList.contains("jira-sprint--closed")).toBe(true);
   });
 });
 

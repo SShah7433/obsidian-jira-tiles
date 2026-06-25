@@ -66,7 +66,6 @@ export class JiraClient {
     const path = `/rest/api/${JIRA_REST_API_VERSION}/issue/${encodeURIComponent(
       key,
     )}${fieldsParam}`;
-    console.log("[jira-tiles] getIssue", key, "path:", path);
     return this.send<JiraIssue>("GET", path);
   }
 
@@ -105,24 +104,11 @@ export class JiraClient {
       return payload as T;
     }
 
-    // Diagnostic: log enough to tell apart "wrong site URL" from "user
-    // doesn't have access" from "issue genuinely missing". We deliberately
-    // include the *full URL* and *response body excerpt* so the user can
-    // paste it into a real browser request to compare.
+    // Surface a concise diagnostic for non-2xx responses. Errors are allowed
+    // in the console; we include the full URL + status so the user can tell
+    // apart a wrong site URL, a permissions issue, and a missing issue.
     console.error(
-      "[jira-tiles] Jira request failed",
-      JSON.stringify(
-        {
-          method,
-          baseUrl: ctx.baseUrl,
-          path,
-          fullUrl: ctx.baseUrl + path,
-          status: res.status,
-          bodySnippet: (res.text ?? "").slice(0, 400),
-        },
-        null,
-        2,
-      ),
+      `[jira-tiles] Jira request failed: ${method} ${ctx.baseUrl}${path} → ${res.status}`,
     );
 
     throw new JiraApiError(
@@ -147,22 +133,11 @@ export class JiraClient {
 
     // requestUrl doesn't expose AbortController; we wrap in a Promise.race
     // for a soft timeout. The underlying request will continue but the caller
-    // will see a timeout error.
-    return await Promise.race([
-      this.request({
-        url,
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        throw: false,
-      }),
-      this.timeoutPromise(),
-    ]);
-  }
-
-  private timeoutPromise(): Promise<never> {
-    return new Promise((_, reject) => {
-      setTimeout(
+    // will see a timeout error. We clear the timer once the request settles so
+    // we don't leave a dangling timeout firing into the void.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
         () =>
           reject(
             new JiraApiError(
@@ -173,6 +148,21 @@ export class JiraClient {
         REQUEST_TIMEOUT_MS,
       );
     });
+
+    try {
+      return await Promise.race([
+        this.request({
+          url,
+          method,
+          headers,
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+          throw: false,
+        }),
+        timeout,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   private describeError(status: number, baseUrl?: string, path?: string): string {
