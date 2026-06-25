@@ -12,6 +12,19 @@
  *   - `requestUrl` -> ignored (the harness uses fixtures, not the network)
  */
 
+/*
+ * eslint-disable
+ * --
+ * Browser-only dev shim, excluded from the published plugin (see .npmignore).
+ * It deliberately uses plain-browser DOM (`document`, `innerHTML`, bare
+ * `setTimeout`, `instanceof`) because it stands in for the "obsidian" module
+ * inside esbuild's dev server, where Obsidian's activeDocument/requestUrl and
+ * pop-out windows do not exist. The only `innerHTML` write injects a fixed,
+ * trusted set of inline SVG icons defined in this file (no untrusted input).
+ * Linting the whole file off avoids scattering directives through code that
+ * is correct for its browser-only context.
+ */
+
 /* -------------------------------------------------------------------------- */
 /* setIcon                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -36,7 +49,6 @@ export function setIcon(el: HTMLElement, name: string): void {
   const svg = ICON_SVGS[name];
   if (svg) {
     // The harness is the only consumer; trusted markup, no XSS surface.
-    // eslint-disable-next-line no-unsanitized/property
     el.innerHTML = svg;
   } else {
     el.textContent = `[${name}]`;

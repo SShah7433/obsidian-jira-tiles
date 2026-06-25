@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] — 2026-06-25
+
+### Changed
+
+- Addressed Obsidian plugin-review linter findings:
+  - Cross-window safety: DOM helpers now use Obsidian's `activeDocument`
+    (falling back to `window.document` outside Obsidian) instead of bare
+    `document`/`globalThis`, so tiles render correctly in pop-out windows.
+  - Replaced the version-gated `ButtonComponent.setDestructive()` call
+    (newer than `minAppVersion` 1.11.4) with the long-standing
+    `mod-warning` class, so the Disconnect button styles correctly on all
+    supported app versions.
+  - Wrapped the remaining async settings button handler so it returns
+    `void` rather than a floating Promise.
+
+### Build
+
+- Added build provenance attestations (`actions/attest-build-provenance`)
+  for `main.js` and `styles.css` in the release workflow, and generated
+  release notes from this changelog.
+- Listed `@codemirror/state`/`@codemirror/view` as devDependencies and
+  dropped the `builtin-modules` dependency (esbuild now uses Node's
+  built-in `module.builtinModules`).
+
 ## [0.1.0] — Unreleased
 
 ### Added

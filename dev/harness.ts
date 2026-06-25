@@ -17,6 +17,23 @@
  * the same fixture can be flipped between modes without editing JSON.
  */
 
+/*
+ * eslint-disable
+ * --
+ * This file is the standalone dev-preview harness. It runs in a plain browser
+ * tab served by esbuild's dev server, NOT inside Obsidian, and is excluded
+ * from the published plugin (see .npmignore). The Obsidian plugin conventions
+ * the reviewer enforces (activeDocument over document, requestUrl over fetch,
+ * no innerHTML, window.setTimeout, .instanceOf) target plugin code that runs
+ * inside Obsidian and do not apply to this browser-only tool:
+ *   - there is no Obsidian `activeDocument`/`requestUrl` in a plain browser;
+ *   - there are no pop-out windows to stay compatible with;
+ *   - `innerHTML = ""` is only used to clear the preview root (never to inject
+ *     untrusted markup).
+ * Linting is disabled for the whole file rather than scattering dozens of
+ * per-line directives through otherwise correct browser code.
+ */
+
 import "./obsidian-shim"; // installs HTMLElement polyfills + Notice/setIcon
 import {
   displayOptionsFromSettings,

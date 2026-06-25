@@ -247,18 +247,24 @@ export class JiraTilesSettingTab extends PluginSettingTab {
             this.plugin.settings.apiToken?.siteUrl ?? "(unknown site)"
           }.`,
         )
-        .addButton((btn) =>
+        .addButton((btn) => {
+          // `mod-warning` is the long-standing Obsidian class for destructive
+          // buttons. We apply it directly rather than calling setWarning()
+          // (deprecated) or setDestructive() (requires an app version newer
+          // than our minAppVersion), so the styling works on 1.11.4+.
+          btn.buttonEl.addClass("mod-warning");
           btn
             .setButtonText("Disconnect")
-            .setDestructive()
-            .onClick(async () => {
-              this.plugin.settings.authMethod = "none";
-              await this.plugin.saveSettings();
-              this.plugin.onAuthChanged();
-              new Notice("Disconnected.");
-              this.display();
-            }),
-        );
+            .onClick(() => {
+              void (async () => {
+                this.plugin.settings.authMethod = "none";
+                await this.plugin.saveSettings();
+                this.plugin.onAuthChanged();
+                new Notice("Disconnected.");
+                this.display();
+              })();
+            });
+        });
     }
   }
 

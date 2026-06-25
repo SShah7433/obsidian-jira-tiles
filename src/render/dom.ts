@@ -12,8 +12,13 @@
 
 /** The document of the currently active (possibly pop-out) window. */
 export function doc(): Document {
-  const ad = (globalThis as { activeDocument?: Document }).activeDocument;
-  return ad ?? document;
+  // `activeDocument` is an Obsidian global pointing at the focused window's
+  // document. It is undefined in plain browsers / jsdom (tests, dev harness),
+  // so fall back to the standard `window.document` there.
+  if (typeof activeDocument !== "undefined") {
+    return activeDocument;
+  }
+  return window.document;
 }
 
 /** Convenience: create a detached element in the active document. */
