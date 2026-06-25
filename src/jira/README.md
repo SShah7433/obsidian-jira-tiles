@@ -42,5 +42,5 @@ class JiraApiError extends Error {
 }
 ```
 
-Renderer code surfaces `message` directly; the error fixtures in `dev/fixtures/`
-exercise the most common cases.
+Renderer code surfaces `message` directly; the error fixtures in the dev
+preview harness (on the `dev` branch) exercise the most common cases.

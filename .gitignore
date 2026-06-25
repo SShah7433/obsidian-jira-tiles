@@ -23,6 +23,3 @@ npm-debug.log*
 # Test
 coverage/
 .nyc_output/
-
-# Dev preview build output
-dev/dist/

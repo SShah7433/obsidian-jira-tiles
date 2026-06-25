@@ -69,7 +69,8 @@ parameter. Unit tests inject:
 - `display` — DisplayOptions snapshot
 - `now` — deterministic clock for relative-time assertions
 
-The dev preview harness uses the same seam to render tiles from JSON fixtures.
+The dev preview harness (on the `dev` branch) uses the same seam to render
+tiles from JSON fixtures.
 
 ## Mobile considerations
 

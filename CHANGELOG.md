@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] — 2026-06-25
+
+### Changed
+
+- Moved the browser-based dev preview harness (`dev/`) off `main` to a
+  dedicated `dev` branch. It is a standalone browser tool that is never
+  bundled into the published plugin, so keeping it out of `main` keeps the
+  shipped repository and plugin-review scope limited to plugin source.
+- Simplified `esbuild.config.mjs` to the plugin build only (`--watch` /
+  `--production`); the `--serve` dev-preview mode and the `dev:preview`
+  npm script now live on the `dev` branch.
+
 ## [0.1.2] — 2026-06-25
 
 ### Changed

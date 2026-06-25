@@ -41,8 +41,8 @@ The plugin replaces that block with a rich tile showing:
   offline indicator when the network is unreachable.
 - **Mobile-first.** Tiles reflow at 320px, all interactive elements are
   44px touch targets.
-- **Dev mode.** `npm run dev:preview` boots a browser harness for iterating
-  on the tile UI without rebuilding the plugin.
+- **Dev mode.** A browser-based preview harness for iterating on the tile
+  UI without rebuilding the plugin lives on the [`dev` branch](https://github.com/SShah7433/obsidian-jira-tiles/tree/dev).
 
 ## Installation
 
@@ -185,7 +185,6 @@ Fields render via smart formatters that detect:
 npm install              # install dependencies
 npm run build            # one-shot production build → main.js
 npm run dev              # watch mode for plugin development
-npm run dev:preview      # spin up the dev preview harness (browser)
 npm test                 # run the Jest test suite
 npm run test:watch       # tests in watch mode
 npm run test:coverage    # tests with coverage report
@@ -194,9 +193,11 @@ npm run typecheck        # tsc --noEmit
 
 ### Dev preview mode
 
-`npm run dev:preview` boots a local browser harness for iterating on tile UI
-without needing a real Jira account or reloading Obsidian. See
-[dev/README.md](./dev/README.md) for fixture format and toolbar controls.
+A browser-based preview harness for iterating on tile UI without a real Jira
+account or reloading Obsidian lives on the
+[`dev` branch](https://github.com/SShah7433/obsidian-jira-tiles/tree/dev)
+(`npm run dev:preview` there). It is kept off `main` because it is a
+standalone browser tool that is never shipped with the plugin.
 
 ### Repository layout
 
@@ -210,11 +211,6 @@ src/                Plugin source (shipped to Obsidian)
   cache/            In-memory TTL cache                      (README inside)
   render/           Code block processor + tile DOM + smart formatters (README inside)
   settings/         Settings tab + field picker modal        (README inside)
-dev/                Dev preview harness (NOT shipped)        (README inside)
-  index.html        Browser harness page
-  harness.ts        Harness entry
-  obsidian-shim.ts  Stub Obsidian API
-  fixtures/         Sample Jira responses
 tests/              Jest test suite
 ```
 

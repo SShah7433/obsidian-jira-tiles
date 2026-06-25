@@ -3,7 +3,6 @@
 # main.js, manifest.json, styles.css, and versions.json.
 
 src/
-dev/
 tests/
 node_modules/
 *.ts
