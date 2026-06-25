@@ -641,6 +641,203 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/* Compact variant — one-row tile for prose-density references                */
+/* --------------------------------------------------------------------------
+ * Triggered by `compact: true` in the ```jira block kv-form. The whole tile
+ * collapses to a single inline-flex row; the summary truncates rather than
+ * wrapping so the line height stays constant.
+ *
+ * Layout: [icon] [KEY] [summary 1fr] [status] [↑prio] [👤] [↻] [↗]
+ *
+ *   - The icon, key, and action buttons are fixed-width.
+ *   - Summary takes the remaining space with text-overflow: ellipsis.
+ *   - Status / priority / assignee live in an inline-flex group that
+ *     shrinks first when the container is narrow, then hides individually
+ *     via responsive rules.
+ *
+ * Visual rules NOT to break:
+ *   - Total height stays at 36px (matches the standard footer button row).
+ *   - Touch targets keep their 32–36px hit area through padding even when
+ *     the button border-radius is small.
+ * ------------------------------------------------------------------------ */
+
+.jira-tile--compact {
+  /* Skip the body/footer split — the row IS the content. */
+  flex-direction: row;
+  padding: 0;
+  min-height: 36px;
+}
+
+.jira-tile-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.625rem;
+}
+
+/* The big-format issue-type icon (2.25rem) is way too tall for one-line
+   layout. Shrink it back to inline-icon scale here, and undo the loading
+   shimmer's giant treatment too. */
+.jira-tile--compact .jira-tile-issuetype {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.jira-tile--compact .jira-tile-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text-accent);
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.jira-tile--compact .jira-tile-key:hover {
+  text-decoration: underline;
+}
+
+.jira-tile--compact .jira-tile-summary {
+  /* Compact summary is NOT a heading — keep it readable but de-emphasized
+     relative to the bold full-tile version, since the line is busier. */
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-normal);
+  /* Single-line ellipsis: required so the row never wraps. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Override the multi-line clamp set on .jira-tile-summary in the full
+     tile (we use the same class for visual reuse). */
+  display: inline;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  line-height: 1.4;
+}
+
+.jira-tile-compact-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* Status badge in compact mode — shrink padding so it doesn't dominate. */
+.jira-tile--compact .jira-tile-status-badge {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.78rem;
+  /* Cap width so a long status name doesn't crowd the row. */
+  max-width: 12rem;
+}
+
+/* Priority — icon-only in compact mode. */
+.jira-tile-compact-priority {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+}
+
+.jira-tile-compact-priority .jira-tile-icon-inline {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Assignee — avatar-only chip (no name text in compact). */
+.jira-tile-compact-assignee {
+  padding: 0;
+  background: transparent;
+  /* Hide the name span that the user formatter appends — we keep the
+     avatar via the first-child <img> / <span>. */
+}
+
+.jira-tile-compact-assignee > span:not(.jira-tile-assignee-avatar) {
+  display: none;
+}
+
+.jira-tile-compact-assignee img,
+.jira-tile-compact-assignee span.jira-tile-assignee-avatar {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Compact actions: smaller icon buttons. */
+.jira-tile--compact .jira-tile-actions {
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.jira-tile--compact .jira-tile-refresh-btn,
+.jira-tile--compact .jira-tile-open-btn--icon {
+  /* Square icon-only buttons. The 28px size pairs with 36px row height. */
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none !important;
+  font-size: 0.85rem;
+}
+
+.jira-tile--compact .jira-tile-refresh-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.jira-tile--compact .jira-tile-open-btn--icon {
+  /* Override the green-CTA full-tile styling: in compact mode the open
+     button is just another icon button, peer to refresh. */
+  background: transparent;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.jira-tile--compact .jira-tile-refresh-btn:hover,
+.jira-tile--compact .jira-tile-refresh-btn:focus-visible,
+.jira-tile--compact .jira-tile-open-btn--icon:hover,
+.jira-tile--compact .jira-tile-open-btn--icon:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  text-decoration: none !important;
+}
+
+.jira-tile--compact .jira-tile-refresh-btn svg,
+.jira-tile--compact .jira-tile-open-btn--icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Stale state in compact mode is just a subtle border accent — no big
+   "⚠ stale" prefix since there's no timestamp area to attach it to. */
+.jira-tile--compact.jira-tile--stale {
+  border-color: var(--text-warning, #b45309);
+}
+
+/* Loading skeleton needs explicit overrides since compact tiles don't
+   have the body padding the full-tile shimmer was tuned for. */
+.jira-tile--compact.jira-tile--loading .jira-tile-summary {
+  min-height: 1em;
+}
+
+/* Compact error tile: the summary slot carries the error message; tint it
+   so it stands out from a normal summary. */
+.jira-tile--compact .jira-tile-summary.jira-tile-error-message {
+  color: var(--text-error);
+  font-weight: 500;
+  /* Don't honor newlines here — we're already on one line. */
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Responsive: phone-width tweaks                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -678,5 +875,21 @@
   }
   .jira-tile-footer {
     padding: 0.625rem 1rem;
+  }
+
+  /* Compact mode on phones: drop the priority icon and assignee avatar
+     to keep status + summary readable; full tile is the better choice at
+     this width anyway. */
+  .jira-tile--compact .jira-tile-compact-priority,
+  .jira-tile--compact .jira-tile-compact-assignee {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  /* Last-resort: drop the status badge too at tiny widths so the summary
+     gets the full line. The user can tap to open in Jira for context. */
+  .jira-tile--compact .jira-tile-status-badge {
+    display: none;
   }
 }

@@ -34,6 +34,7 @@ import type { JiraIssue } from "../jira/types";
 import type { FetchResult } from "../cache/issueCache";
 import { InvalidJiraBlockError, type IssueRequest } from "./parseBlock";
 import {
+  appendExternalLinkIcon,
   appendRefreshIcon,
   renderIssueTypeIcon,
   renderPriorityIcon,
@@ -108,20 +109,22 @@ export async function renderInto(
   container.empty();
   container.addClass("jira-tile-container");
 
-  let tile = mountSkeleton(container, request.key);
+  let tile = mountSkeleton(container, request.key, request.compact);
 
   const refresh = async (force: boolean): Promise<void> => {
     if (force) {
       container.empty();
-      tile = mountSkeleton(container, request.key);
+      tile = mountSkeleton(container, request.key, request.compact);
     }
     try {
       const result = await ctx.fetch(request.key, force);
       container.empty();
-      tile = renderLoadedTile(container, request, result, ctx, refresh);
+      tile = request.compact
+        ? renderCompactLoadedTile(container, result, ctx, refresh)
+        : renderLoadedTile(container, request, result, ctx, refresh);
     } catch (err) {
       container.empty();
-      tile = renderErrorTile(container, request.key, err, ctx, refresh);
+      tile = renderErrorTile(container, request.key, err, ctx, refresh, request.compact);
     }
   };
 
@@ -141,6 +144,11 @@ export function renderResolvedTile(
 ): HTMLElement {
   container.empty();
   container.addClass("jira-tile-container");
+  if (request.compact) {
+    return renderCompactLoadedTile(container, result, ctx, async () => {
+      /* refresh disabled in resolved-only mode */
+    });
+  }
   return renderLoadedTile(container, request, result, ctx, async () => {
     /* refresh disabled in resolved-only mode */
   });
@@ -164,7 +172,22 @@ export function renderInvalidBlock(
 /* Internal: state-specific renderers                                         */
 /* -------------------------------------------------------------------------- */
 
-function mountSkeleton(container: HTMLElement, key: string): HTMLElement {
+function mountSkeleton(
+  container: HTMLElement,
+  key: string,
+  compact = false,
+): HTMLElement {
+  if (compact) {
+    const tile = container.createDiv({
+      cls: "jira-tile jira-tile--compact jira-tile--loading",
+    });
+    const row = tile.createDiv({ cls: "jira-tile-compact-row" });
+    row.createDiv({ cls: "jira-tile-issuetype" });
+    row.createSpan({ cls: "jira-tile-key", text: key });
+    row.createSpan({ cls: "jira-tile-summary", text: "Loading…" });
+    return tile;
+  }
+
   const tile = container.createDiv({ cls: "jira-tile jira-tile--loading" });
 
   const body = tile.createDiv({ cls: "jira-tile-body" });
@@ -395,14 +418,196 @@ function renderStandardFields(
   }
 }
 
+/**
+ * Compact loaded-tile renderer.
+ *
+ * Single-row layout, ~32–36 px tall depending on theme font metrics:
+ *
+ *   [icon] PROJ-123  Summary text…  [In Progress] [↑Med] [👤 Alice]  [↻][↗]
+ *
+ * Goals:
+ *   - Fit in roughly one line of body text so a note with many references
+ *     reads like prose instead of a wall of cards.
+ *   - Stay informative — the status pill, priority icon, and assignee
+ *     avatar are the highest-signal items, so they stay; labels, subtitle,
+ *     due date, fix-versions, and custom fields are intentionally hidden
+ *     (the user still has the full tile for that).
+ *   - Single grow region (the summary) so text truncates with ellipsis
+ *     instead of wrapping.
+ *
+ * Stale state still surfaces via a class on the tile root; failures route
+ * to renderErrorTile (also compact-aware).
+ */
+function renderCompactLoadedTile(
+  container: HTMLElement,
+  result: FetchResult,
+  ctx: RenderContext,
+  onRefresh: (force: boolean) => Promise<void>,
+): HTMLElement {
+  const issue = result.data;
+  const tile = container.createDiv({
+    cls: "jira-tile jira-tile--compact",
+  });
+  if (result.staleError) tile.addClass("jira-tile--stale");
+
+  const row = tile.createDiv({ cls: "jira-tile-compact-row" });
+
+  /* Issue-type icon (always shown — it's the visual anchor) */
+  if (ctx.display.showIssueType) {
+    const iconWrap = row.createDiv({ cls: "jira-tile-issuetype" });
+    renderIssueTypeIcon(
+      iconWrap,
+      issue.fields.issuetype?.iconUrl,
+      issue.fields.issuetype?.name,
+    );
+  }
+
+  /* Key — clickable, links to Jira like the open button */
+  const issueUrl = ctx.buildIssueUrl(issue.key);
+  const keyLink = row.createEl("a", {
+    cls: "jira-tile-key",
+    text: issue.key,
+    href: issueUrl,
+    attr: { target: "_blank", rel: "noopener noreferrer" },
+  });
+  attachOpener(keyLink, issueUrl, ctx);
+
+  /* Summary — grows to fill, truncates with ellipsis */
+  row.createSpan({
+    cls: "jira-tile-summary",
+    text: issue.fields.summary ?? "(no summary)",
+  });
+
+  /* Inline pills — status, priority icon, assignee avatar.
+     Each is independently optional so users with toggles off get a
+     genuinely minimal pill, not blank slots. */
+  const inline = row.createDiv({ cls: "jira-tile-compact-inline" });
+
+  if (ctx.display.showStatus && issue.fields.status?.name) {
+    const color =
+      issue.fields.status.statusCategory?.colorName ?? "medium-gray";
+    const badge = inline.createDiv({
+      cls: `jira-tile-status-badge jira-tile-status-badge--${color}`,
+    });
+    badge.createSpan({ text: issue.fields.status.name });
+  }
+
+  if (ctx.display.showPriority && issue.fields.priority?.name) {
+    // Icon-only priority — name is implied by the icon color/shape and
+    // surfaces via the title tooltip for accessibility.
+    const p = inline.createDiv({
+      cls: "jira-tile-priority-value jira-tile-compact-priority",
+    });
+    p.title = `Priority: ${issue.fields.priority.name}`;
+    const icon = p.createSpan({ cls: "jira-tile-icon-inline" });
+    renderPriorityIcon(
+      icon,
+      issue.fields.priority.iconUrl,
+      issue.fields.priority.name,
+    );
+  }
+
+  if (ctx.display.showAssignee && issue.fields.assignee) {
+    // Avatar-only chip — name is in the title attribute so screen readers
+    // and hover both show it.
+    const chip = inline.createDiv({
+      cls: "jira-tile-assignee-chip jira-tile-compact-assignee",
+    });
+    chip.title = `Assignee: ${
+      issue.fields.assignee.displayName ?? "Unknown"
+    }`;
+    chip.appendChild(formatCustomField(issue.fields.assignee));
+  }
+
+  /* Actions: refresh + open. Both icon-only to keep the row tight. */
+  const actions = row.createDiv({ cls: "jira-tile-actions" });
+
+  const refreshBtn = actions.createEl("button", {
+    cls: "jira-tile-refresh-btn",
+    attr: {
+      type: "button",
+      "aria-label": "Refresh",
+      title: result.staleError
+        ? `Showing cached data — ${result.staleError.message}. Click to retry.`
+        : "Refresh",
+    },
+  });
+  appendRefreshIcon(refreshBtn);
+  refreshBtn.addEventListener("click", () => {
+    refreshBtn.classList.add("is-spinning");
+    onRefresh(true)
+      .catch((e) => new Notice(`Refresh failed: ${(e as Error).message}`))
+      .finally(() => refreshBtn.classList.remove("is-spinning"));
+  });
+
+  const openBtn = actions.createEl("a", {
+    cls: "jira-tile-open-btn jira-tile-open-btn--icon",
+    attr: {
+      target: "_blank",
+      rel: "noopener noreferrer",
+      "aria-label": "Open in Jira",
+      title: "Open in Jira",
+    },
+    href: issueUrl,
+  });
+  appendExternalLinkIcon(openBtn);
+  attachOpener(openBtn, issueUrl, ctx);
+
+  return tile;
+}
+
 function renderErrorTile(
   container: HTMLElement,
   key: string,
   err: unknown,
   ctx: RenderContext,
   onRefresh: (force: boolean) => Promise<void>,
+  compact = false,
 ): HTMLElement {
-  const tile = container.createDiv({ cls: "jira-tile jira-tile--error" });
+  const tile = container.createDiv({
+    cls: compact
+      ? "jira-tile jira-tile--compact jira-tile--error"
+      : "jira-tile jira-tile--error",
+  });
+
+  if (compact) {
+    // Inline-only error: key + short message + retry icon + open link.
+    // Keeps the visual contract that a compact tile never grows past a
+    // single row.
+    const row = tile.createDiv({ cls: "jira-tile-compact-row" });
+    row.createDiv({ cls: "jira-tile-issuetype" });
+    row.createSpan({ cls: "jira-tile-key", text: key });
+    row.createSpan({
+      cls: "jira-tile-summary jira-tile-error-message",
+      text: err instanceof Error ? err.message : String(err),
+    });
+    const actions = row.createDiv({ cls: "jira-tile-actions" });
+    const retry = actions.createEl("button", {
+      cls: "jira-tile-refresh-btn",
+      attr: { type: "button", "aria-label": "Retry", title: "Retry" },
+    });
+    appendRefreshIcon(retry);
+    retry.addEventListener("click", () => {
+      retry.classList.add("is-spinning");
+      onRefresh(true)
+        .catch((e) => new Notice(`Retry failed: ${(e as Error).message}`))
+        .finally(() => retry.classList.remove("is-spinning"));
+    });
+    const url = ctx.buildIssueUrl(key);
+    const openBtn = actions.createEl("a", {
+      cls: "jira-tile-open-btn jira-tile-open-btn--icon",
+      attr: {
+        target: "_blank",
+        rel: "noopener noreferrer",
+        "aria-label": "Open in Jira",
+        title: "Open in Jira",
+      },
+      href: url,
+    });
+    appendExternalLinkIcon(openBtn);
+    attachOpener(openBtn, url, ctx);
+    return tile;
+  }
 
   const body = tile.createDiv({ cls: "jira-tile-body" });
   const header = body.createDiv({ cls: "jira-tile-header" });

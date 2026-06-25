@@ -4,13 +4,17 @@
  * Mounts a minimal page that:
  *   - Lists fixtures from dev/fixtures/_index.json (built by esbuild config).
  *   - Renders the selected fixture using the production tile renderer.
- *   - Lets you toggle theme (light/dark), viewport width, and "stale" mode.
+ *   - Lets you toggle theme (light/dark), viewport width, and compact mode.
  *
  * Fixtures map to render states:
  *   - { kind: "issue", issue, fetchedAt }            -> normal load
  *   - { kind: "issue-stale", issue, error, fetchedAt } -> offline+cached
  *   - { kind: "loading" }                            -> permanent loading skeleton
  *   - { kind: "error", message }                    -> error state
+ *
+ * Any fixture may set `compact: true` to default to the compact render path
+ * when selected. The toolbar's "Compact" checkbox overrides per-render so
+ * the same fixture can be flipped between modes without editing JSON.
  */
 
 import "./obsidian-shim"; // installs HTMLElement polyfills + Notice/setIcon
@@ -32,6 +36,8 @@ interface IssueFixture {
   fetchedAt?: number;
   customFields?: Array<{ id: string; label: string; enabled?: boolean }>;
   fromCache?: boolean;
+  /** When true, the fixture defaults to compact mode on selection. */
+  compact?: boolean;
 }
 interface IssueStaleFixture {
   kind: "issue-stale";
@@ -39,15 +45,18 @@ interface IssueStaleFixture {
   error: string;
   fetchedAt?: number;
   customFields?: Array<{ id: string; label: string; enabled?: boolean }>;
+  compact?: boolean;
 }
 interface LoadingFixture {
   kind: "loading";
   key: string;
+  compact?: boolean;
 }
 interface ErrorFixture {
   kind: "error";
   key: string;
   message: string;
+  compact?: boolean;
 }
 type Fixture = IssueFixture | IssueStaleFixture | LoadingFixture | ErrorFixture;
 
@@ -55,6 +64,7 @@ const ROOT = document.getElementById("preview-root")!;
 const FIXTURE_SELECT = document.getElementById("fixture-select") as HTMLSelectElement;
 const VIEWPORT_SELECT = document.getElementById("viewport-select") as HTMLSelectElement;
 const THEME_SELECT = document.getElementById("theme-select") as HTMLSelectElement;
+const COMPACT_TOGGLE = document.getElementById("compact-toggle") as HTMLInputElement | null;
 const STAGE = document.getElementById("preview-stage")!;
 
 async function loadFixtureIndex(): Promise<string[]> {
@@ -91,10 +101,17 @@ function settingsForFixture(fx: Fixture): PluginSettings {
   return s;
 }
 
+/** Resolved per-render flag: fixture default + toolbar override. */
+function effectiveCompact(fx: Fixture): boolean {
+  if (COMPACT_TOGGLE?.checked) return true;
+  return !!fx.compact;
+}
+
 async function renderFixture(fx: Fixture): Promise<void> {
   ROOT.innerHTML = "";
   const settings = settingsForFixture(fx);
   const display: DisplayOptions = displayOptionsFromSettings(settings);
+  const compact = effectiveCompact(fx);
 
   if (fx.kind === "loading") {
     const container = ROOT.appendChild(document.createElement("div"));
@@ -102,7 +119,7 @@ async function renderFixture(fx: Fixture): Promise<void> {
     const neverResolves = new Promise<never>(() => undefined);
     void renderInto(
       container,
-      { key: fx.key },
+      { key: fx.key, compact },
       {
         buildIssueUrl,
         fetch: () => neverResolves,
@@ -116,7 +133,7 @@ async function renderFixture(fx: Fixture): Promise<void> {
     const container = ROOT.appendChild(document.createElement("div"));
     void renderInto(
       container,
-      { key: fx.key },
+      { key: fx.key, compact },
       {
         buildIssueUrl,
         fetch: () => Promise.reject(new Error(fx.message)),
@@ -130,7 +147,7 @@ async function renderFixture(fx: Fixture): Promise<void> {
     const container = ROOT.appendChild(document.createElement("div"));
     renderResolvedTile(
       container,
-      { key: fx.issue.key },
+      { key: fx.issue.key, compact },
       {
         data: fx.issue,
         fetchedAt: fx.fetchedAt ?? Date.now() - 30_000,
@@ -145,7 +162,7 @@ async function renderFixture(fx: Fixture): Promise<void> {
     const container = ROOT.appendChild(document.createElement("div"));
     renderResolvedTile(
       container,
-      { key: fx.issue.key },
+      { key: fx.issue.key, compact },
       {
         data: fx.issue,
         fetchedAt: fx.fetchedAt ?? Date.now() - 12 * 60 * 60_000,
@@ -197,6 +214,7 @@ async function main(): Promise<void> {
   VIEWPORT_SELECT.addEventListener("change", () => {
     STAGE.dataset.width = VIEWPORT_SELECT.value;
   });
+  COMPACT_TOGGLE?.addEventListener("change", loadAndRender);
   const applyTheme = (): void => {
     const theme = THEME_SELECT.value;
     document.documentElement.dataset.theme = theme;

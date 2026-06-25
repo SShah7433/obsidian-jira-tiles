@@ -36,6 +36,7 @@ same structure:
   "kind": "issue",            // see "Kinds" below
   "fetchedAt": 1756000000000, // optional — defaults to (now - 30s)
   "fromCache": false,         // optional — adds the "cached" footer label
+  "compact": false,           // optional — preselects the compact layout
   "customFields": [...],      // optional — list of CustomFieldConfig entries
   "issue": { ... }            // a JiraIssue (see src/jira/types.ts)
 }
@@ -52,6 +53,9 @@ same structure:
 
 Stale fixtures need an `error` string. Error fixtures need a `key` and `message`.
 
+The pre-shipped `compact-*.json` fixtures default to compact mode; any
+other fixture can be flipped to compact via the toolbar checkbox.
+
 ### Adding a new fixture
 
 1. Drop a new `.json` file into `dev/fixtures/`.
@@ -64,10 +68,13 @@ Stale fixtures need an `error` string. Error fixtures need a `key` and `message`
 - **Viewport** — full-width / 768px (tablet) / 360px (phone) for responsive QA.
 - **Theme** — toggles light/dark; sets both `data-theme` on `<html>` and
   `theme-dark` on `<body>` (the production styles.css uses the latter).
+- **Compact** — flip the current fixture to the single-row compact tile
+  layout (icon + key + summary + status + priority + assignee + actions on
+  one line). When a fixture sets `"compact": true` it preselects this; the
+  checkbox can still toggle either way for side-by-side comparison.
 
 ## What's NOT testable here
 
-- OAuth flow (needs a real `obsidian://` redirect)
 - Real Jira API behavior (rate limits, exact error shapes)
 - Plugin lifecycle (settings persistence, multi-tile cache coalescing)
 

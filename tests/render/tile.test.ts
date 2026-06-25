@@ -519,3 +519,129 @@ describe("timestamp formatting", () => {
     expect(ts).toMatch(/^As of [A-Z][a-z]+ \d+ at /);
   });
 });
+
+describe("compact mode", () => {
+  it("renders a single-row tile when request.compact === true", async () => {
+    const container = document.createElement("div");
+    await renderInto(container, { key: "PROJ-1", compact: true }, makeCtx());
+    expect(container.querySelector(".jira-tile--compact")).not.toBeNull();
+    expect(container.querySelector(".jira-tile-compact-row")).not.toBeNull();
+    // No body / footer / subtitle in compact mode.
+    expect(container.querySelector(".jira-tile-body")).toBeNull();
+    expect(container.querySelector(".jira-tile-footer")).toBeNull();
+    expect(container.querySelector(".jira-tile-subtitle")).toBeNull();
+    // No labeled grids.
+    expect(container.querySelector(".jira-tile-grid--standard")).toBeNull();
+    expect(container.querySelector(".jira-tile-grid--custom")).toBeNull();
+  });
+
+  it("shows summary, status badge, priority icon, and assignee chip inline", async () => {
+    const container = document.createElement("div");
+    await renderInto(container, { key: "PROJ-1", compact: true }, makeCtx());
+    expect(container.textContent).toContain("Hello world"); // summary
+    expect(container.querySelector(".jira-tile-status-badge")?.textContent).toBe(
+      "In Progress",
+    );
+    expect(
+      container.querySelector(".jira-tile-compact-priority"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(".jira-tile-compact-assignee"),
+    ).not.toBeNull();
+  });
+
+  it("renders refresh + icon-only open buttons in compact mode", async () => {
+    const container = document.createElement("div");
+    await renderInto(container, { key: "PROJ-1", compact: true }, makeCtx());
+    const actions = container.querySelector(".jira-tile-actions");
+    expect(actions).not.toBeNull();
+    expect(actions?.querySelector(".jira-tile-refresh-btn")).not.toBeNull();
+    const open = actions?.querySelector(
+      ".jira-tile-open-btn--icon",
+    ) as HTMLAnchorElement | null;
+    expect(open).not.toBeNull();
+    expect(open?.getAttribute("href")).toBe(
+      "https://example.atlassian.net/browse/PROJ-1",
+    );
+    // No "Open in Jira" text — icon only.
+    expect(open?.textContent?.trim()).toBe("");
+  });
+
+  it("hides the priority + assignee when their toggles are off", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1", compact: true },
+      makeCtx({
+        display: {
+          showStatus: true,
+          showPriority: false,
+          showAssignee: false,
+          showDueDate: false,
+          showIssueType: true,
+          showIssueTypeField: false,
+          showFixVersions: false,
+          customFields: [],
+        },
+      }),
+    );
+    expect(container.querySelector(".jira-tile-compact-priority")).toBeNull();
+    expect(container.querySelector(".jira-tile-compact-assignee")).toBeNull();
+    // Status still present.
+    expect(container.querySelector(".jira-tile-status-badge")).not.toBeNull();
+  });
+
+  it("annotates the tile root with jira-tile--stale when fetcher returns staleError", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1", compact: true },
+      makeCtx({
+        fetch: async () => ({
+          data: fakeIssue(),
+          fetchedAt: Date.now() - 60_000,
+          fromCache: true,
+          staleError: new Error("Network unreachable"),
+        }),
+      }),
+    );
+    expect(container.querySelector(".jira-tile--compact")).not.toBeNull();
+    expect(container.querySelector(".jira-tile--stale")).not.toBeNull();
+  });
+
+  it("renders a compact error tile with retry + open icon when fetch rejects", async () => {
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-404", compact: true },
+      makeCtx({
+        fetch: async () => {
+          throw new Error("Issue not found");
+        },
+      }),
+    );
+    const tile = container.querySelector(".jira-tile--compact");
+    expect(tile).not.toBeNull();
+    expect(tile?.classList.contains("jira-tile--error")).toBe(true);
+    expect(container.textContent).toContain("Issue not found");
+    expect(container.querySelector(".jira-tile-refresh-btn")).not.toBeNull();
+    expect(container.querySelector(".jira-tile-open-btn--icon")).not.toBeNull();
+    // No multi-line error layout in compact mode.
+    expect(container.querySelector(".jira-tile-body")).toBeNull();
+  });
+
+  it("renders a compact loading skeleton when request.compact === true and fetch is in flight", async () => {
+    const container = document.createElement("div");
+    const neverResolves = new Promise<never>(() => undefined);
+    void renderInto(
+      container,
+      { key: "PROJ-1", compact: true },
+      makeCtx({ fetch: () => neverResolves }),
+    );
+    // mountSkeleton runs synchronously before the first await.
+    expect(container.querySelector(".jira-tile--compact")).not.toBeNull();
+    expect(container.querySelector(".jira-tile--loading")).not.toBeNull();
+    expect(container.querySelector(".jira-tile-compact-row")).not.toBeNull();
+    expect(container.querySelector(".jira-tile-body")).toBeNull();
+  });
+});

@@ -1,0 +1,26 @@
+{
+  "kind": "issue",
+  "compact": true,
+  "fetchedAt": 1756000000000,
+  "issue": {
+    "id": "50001",
+    "key": "MCP-2607",
+    "fields": {
+      "summary": "Move to Leader",
+      "issuetype": { "name": "Story" },
+      "parent": {
+        "key": "AI-3855",
+        "fields": { "issuetype": { "name": "Epic" } }
+      },
+      "status": {
+        "name": "In Progress",
+        "statusCategory": { "key": "indeterminate", "colorName": "blue-gray", "name": "In Progress" }
+      },
+      "priority": { "name": "Medium" },
+      "assignee": {
+        "displayName": "Rahul Ramakrishna",
+        "accountId": "rrk"
+      }
+    }
+  }
+}
