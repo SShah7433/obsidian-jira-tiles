@@ -9,7 +9,6 @@ Authentication for the Jira REST API.
 | `apiToken.ts`     | API-token (Basic auth) helpers: header building, URL normalization            |
 | `authManager.ts`  | Resolves the per-request `AuthContext` (header + base URL)                    |
 | `secrets.ts`      | SecretsService wrapper around Obsidian's SecretStorage (with memory fallback) |
-| `migration.ts`    | One-shot migration that moves pre-SecretStorage tokens out of `data.json`     |
 
 ## Design
 
@@ -42,18 +41,18 @@ login at id.atlassian.com lets you generate API tokens.
 
 ## Why no OAuth?
 
-Earlier versions supported OAuth 2.0 (3LO) with PKCE, but the Atlassian
-token endpoint repeatedly returned `access_denied: Unauthorized` to the
-Obsidian-bundled HTTP client across multiple body encodings (JSON,
+Earlier versions experimented with OAuth 2.0 (3LO). The blocking problem is
+that Atlassian's authorization-code token exchange requires a
+`client_secret`. A distributable Obsidian plugin has nowhere safe to keep
+one — bundling it in the published plugin would expose the secret to every
+downloader, and PKCE alone did not satisfy the endpoint. On top of that, the
+Atlassian token endpoint repeatedly returned `access_denied: Unauthorized`
+to the Obsidian-bundled HTTP client across multiple body encodings (JSON,
 form-urlencoded) and authentication shapes (PKCE-only, PKCE + secret).
-The combination of distributing a public client_secret in a community
-plugin, the inconsistent Atlassian endpoint behaviour, and the fact that
-API tokens cover the same use cases (including SSO accounts) led us to
-remove OAuth entirely.
 
-The on-load migration in `migration.ts` cleans up any vestigial OAuth
-state in `data.json` from older builds and shows the user a Notice asking
-them to set up an API token.
+Since API tokens cover the same use cases (including SSO-linked accounts,
+which can mint tokens at id.atlassian.com) without shipping a shared secret,
+OAuth was removed entirely.
 
 ## Security notes
 

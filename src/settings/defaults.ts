@@ -11,6 +11,7 @@ import type { PluginSettings } from "./types";
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   authMethod: "none",
+  renderMode: "code-block",
   showStatus: true,
   showPriority: true,
   showAssignee: true,

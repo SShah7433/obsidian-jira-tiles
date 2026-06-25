@@ -8,16 +8,19 @@
  *   onunload - Obsidian deregisters our handlers; we clear caches.
  */
 
-import { Notice, Plugin } from "obsidian";
+import { Plugin } from "obsidian";
 import { JiraTilesSettingTab } from "./settings/SettingsTab";
 import { mergeWithDefaults, DEFAULT_SETTINGS } from "./settings/defaults";
 import type { PluginSettings } from "./settings/types";
 import { AuthManager } from "./auth/authManager";
 import { SecretsService } from "./auth/secrets";
-import { migrateSecretsIfNeeded } from "./auth/migration";
 import { JiraClient } from "./jira/client";
 import { IssueCache } from "./cache/issueCache";
-import { buildCodeBlockProcessor } from "./render/codeBlockProcessor";
+import {
+  buildCodeBlockProcessor,
+  type CodeBlockProcessorDeps,
+} from "./render/codeBlockProcessor";
+import { buildLinkPostProcessor } from "./render/linkPostProcessor";
 import { buildCommands } from "./commands";
 
 /**
@@ -57,21 +60,6 @@ export default class JiraTilesPlugin extends Plugin {
     await this.loadSettings();
 
     this.secrets = new SecretsService(this.app);
-
-    // One-time migration: move any pre-SecretStorage plain-text tokens out
-    // of data.json and into SecretStorage, and drop any legacy OAuth state.
-    // Idempotent — guarded by settings.secretsMigrationComplete. We run
-    // before constructing the auth machinery so it sees the post-migration
-    // shape.
-    const migration = await migrateSecretsIfNeeded(
-      this.settings,
-      this.secrets,
-      Notice,
-    );
-    if (migration.migrated) {
-      await this.saveSettings();
-    }
-
     this.authManager = new AuthManager(() => this.settings, this.secrets);
 
     this.client = new JiraClient({ authManager: this.authManager });
@@ -79,15 +67,26 @@ export default class JiraTilesPlugin extends Plugin {
 
     this.addSettingTab(new JiraTilesSettingTab(this.app, this));
 
+    // Shared dependency bundle for both rendering entry points.
+    const renderDeps: CodeBlockProcessorDeps = {
+      client: this.client,
+      cache: this.cache,
+      getSettings: () => this.settings,
+      openUrl: (url) => openExternalUrl(url),
+    };
+
+    // Code-block syntax (```jira). Always registered; it's a no-op when the
+    // user writes no jira blocks, and gating it on renderMode would require a
+    // reload to toggle. The block only renders when present in the note.
     this.registerMarkdownCodeBlockProcessor(
       "jira",
-      buildCodeBlockProcessor({
-        client: this.client,
-        cache: this.cache,
-        getSettings: () => this.settings,
-        openUrl: (url) => openExternalUrl(url),
-      }),
+      buildCodeBlockProcessor(renderDeps),
     );
+
+    // Inline Jira-URL auto-replacement. The processor itself checks the
+    // render mode on each call, so toggling the setting takes effect on the
+    // next note render without a reload.
+    this.registerMarkdownPostProcessor(buildLinkPostProcessor(renderDeps));
 
     // Command palette entries.
     for (const cmd of buildCommands({ app: this.app, cache: this.cache })) {

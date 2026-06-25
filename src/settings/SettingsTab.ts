@@ -329,6 +329,26 @@ export class JiraTilesSettingTab extends PluginSettingTab {
   private renderDisplaySection(parent: HTMLElement): void {
     new Setting(parent).setName("Display").setHeading();
 
+    new Setting(parent)
+      .setName("Embedding mode")
+      .setDesc(
+        "How Jira issues become tiles. Code block: only ```jira blocks. " +
+          "Auto-link: paste a Jira issue URL on its own line and it becomes a " +
+          "tile. Both: code blocks and Jira URLs.",
+      )
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("code-block", "Code block (```jira)")
+          .addOption("auto-link", "Auto-link Jira URLs")
+          .addOption("both", "Both")
+          .setValue(this.plugin.settings.renderMode)
+          .onChange(async (value) => {
+            this.plugin.settings.renderMode =
+              value as import("./types").RenderMode;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     const toggles: Array<[
       keyof Pick<
         import("./types").PluginSettings,

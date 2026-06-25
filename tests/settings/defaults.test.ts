@@ -39,4 +39,16 @@ describe("mergeWithDefaults", () => {
     expect(merged.cacheTtlMinutes).toBe(DEFAULT_SETTINGS.cacheTtlMinutes);
     expect(merged.customFields).toEqual([]);
   });
+
+  it("defaults renderMode to code-block", () => {
+    expect(DEFAULT_SETTINGS.renderMode).toBe("code-block");
+    expect(mergeWithDefaults({}).renderMode).toBe("code-block");
+  });
+
+  it("preserves a user-chosen renderMode", () => {
+    expect(mergeWithDefaults({ renderMode: "both" }).renderMode).toBe("both");
+    expect(mergeWithDefaults({ renderMode: "auto-link" }).renderMode).toBe(
+      "auto-link",
+    );
+  });
 });

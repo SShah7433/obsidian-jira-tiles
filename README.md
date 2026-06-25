@@ -77,11 +77,14 @@ In *Settings → Jira Tiles*, configure your Atlassian API token:
 4. Click **Use API token**.
 
 > **Note on OAuth:** earlier builds attempted an OAuth 2.0 (3LO) flow.
-> That was removed because the Atlassian token endpoint repeatedly
-> returned `access_denied` to the Obsidian-bundled HTTP client across
-> multiple body encodings and authentication shapes. API tokens cover the
-> same use cases (including SSO accounts) without the operational
-> complexity.
+> It was removed for two reasons. First, a distributable Obsidian plugin
+> cannot safely complete Atlassian's token exchange: it requires a
+> `client_secret`, and bundling a secret in a publicly-downloadable plugin
+> would expose it to everyone. Second, the Atlassian token endpoint
+> repeatedly returned `access_denied` to the Obsidian-bundled HTTP client
+> across multiple body encodings and authentication shapes. API tokens
+> cover the same use cases (including SSO accounts) without shipping a
+> shared secret.
 
 ## Security
 
@@ -90,10 +93,6 @@ Tokens are stored in Obsidian's
 (Obsidian 1.11.4+). The plugin's `data.json` carries only your site URL,
 email, feature toggles, and the *name* of the secret — no credential
 values.
-
-If you're upgrading from a pre-0.2.0 build, the plugin migrates plain-text
-tokens out of `data.json` on first load. Consider rotating your Atlassian
-API token afterwards to invalidate the previously-stored value.
 
 Recommendations:
 
@@ -106,13 +105,35 @@ See [SECURITY.md](./SECURITY.md) for the full threat model.
 
 ## Usage
 
-### Basic embed
+### Embedding mode
+
+In *Settings → Jira Tiles → Display → Embedding mode*, choose how issues
+become tiles:
+
+- **Code block** (default) — only fenced ` ```jira ` blocks render as tiles.
+  Explicit and predictable.
+- **Auto-link Jira URLs** — paste a Jira issue URL on its own line and it is
+  replaced with a tile. Only URLs pointing at your configured Jira site are
+  touched, and only when the link is the whole line (URLs embedded in a
+  sentence stay normal links).
+- **Both** — code blocks *and* standalone Jira URLs render as tiles.
+
+### Basic embed (code block)
 
 ````markdown
 ```jira
 PROJ-123
 ```
 ````
+
+### Auto-link
+
+With auto-link (or both) enabled, a line containing just a Jira issue URL
+becomes a tile:
+
+```markdown
+https://your-site.atlassian.net/browse/PROJ-123
+```
 
 ### Key:value form (forward-compatible)
 
@@ -203,7 +224,7 @@ Coverage spans:
 - API token Basic auth header construction + URL normalization
 - AuthManager: configured/not-configured, secret resolution, error paths
 - SecretsService: SecretStorage path + memory fallback + error handling
-- Migration: legacy plain-text token migration, OAuth-state cleanup
+- URL parsing + auto-link post-processor (host/standalone gating, mode gating)
 - Jira REST client (paths, encoding, status mapping, response parsing)
 - Issue cache (TTL, force, concurrent coalescing, stale-on-failure)
 - Code block parser (single-line + kv form, comment lines, key validation)

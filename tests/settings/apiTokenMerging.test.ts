@@ -8,9 +8,9 @@
  * fields were missing. This test exercises the read-modify-write pattern
  * the SettingsTab now uses (read current, merge patch, write back).
  *
- * After the SecretStorage migration, `tokenSecretName` (a *name*, not the
- * value) replaces the legacy `token` field. The merging contract is
- * unchanged.
+ * Credentials are stored via SecretStorage, so `tokenSecretName` (a *name*,
+ * not the value) is what lives in settings. The merging contract is the
+ * same regardless.
  */
 
 import { isApiTokenStateComplete } from "../../src/auth/apiToken";

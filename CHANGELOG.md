@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.1.0] — Unreleased
 
+### Added
+
+- **Embedding mode** setting (Display → Embedding mode): choose between
+  code blocks (` ```jira `), auto-linking standalone Jira issue URLs, or
+  both. Auto-link only rewrites URLs pointing at the configured Jira site
+  and only when the link is the whole line, so URLs inside a sentence stay
+  normal links. The mode is read per-render so toggling it takes effect on
+  the next note render without a reload.
+
 ### Fixed
 
 - Secret storage IDs now use valid identifiers (`jira-tiles-api-token`).
@@ -33,18 +42,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- **OAuth 2.0 (3LO) support has been removed.** The Atlassian token
-  endpoint repeatedly returned `access_denied: Unauthorized` to the
-  Obsidian-bundled HTTP client across multiple body encodings (JSON,
-  form-urlencoded) and authentication shapes (PKCE-only, PKCE + secret).
-  Combined with the operational complexity of distributing a public
-  client_id and the fact that API tokens cover the same use cases
+- **Credential-migration code removed.** Since the plugin has not shipped,
+  there are no existing installs with plain-text tokens to migrate, so the
+  one-shot `migration.ts` (and its tests) were deleted along with the
+  `secretsMigrationComplete` flag. Fresh installs simply start with the
+  SecretStorage-based shape.
+- **OAuth 2.0 (3LO) support has been removed.** Atlassian's token exchange
+  requires a `client_secret`, which a distributable plugin cannot ship
+  safely — bundling it would expose the secret to every downloader.
+  Additionally, the Atlassian token endpoint repeatedly returned
+  `access_denied: Unauthorized` to the Obsidian-bundled HTTP client across
+  multiple body encodings (JSON, form-urlencoded) and authentication shapes
+  (PKCE-only, PKCE + secret). Since API tokens cover the same use cases
   (including SSO-linked Atlassian accounts that can mint tokens at
-  id.atlassian.com), the OAuth path has been retired. The on-load
-  migration drops any vestigial OAuth state from `data.json` and
-  notifies the user to set up an API token. `OAUTH_SETUP.md` was
-  deleted; OAuth source files (`oauth.ts`, `tokenStore.ts`) and their
-  tests were removed.
+  id.atlassian.com), the OAuth path has been retired. `OAUTH_SETUP.md`
+  was deleted; OAuth source files (`oauth.ts`, `tokenStore.ts`) and
+  their tests were removed.
 
 ### Changed
 

@@ -30,20 +30,6 @@ on a fallback build will not survive an Obsidian reload — you'll need to
 re-enter them. The plugin shows a clear warning in settings when this is in
 effect. Update Obsidian to 1.11.4 or newer for persistent secure storage.
 
-### Migration from earlier plugin versions
-
-Plugin versions prior to 0.2.0 stored tokens as plain text in `data.json`,
-and earlier still attempted an OAuth 2.0 flow. On first load after
-upgrading, the plugin runs a one-shot migration that:
-
-1. Copies any plain-text API token into SecretStorage and clears the field
-   from `data.json`.
-2. Drops any vestigial OAuth state (the OAuth flow was removed) and prompts
-   the user via Notice to configure an API token.
-
-If you want to be extra safe after upgrading, also rotate your Atlassian
-API token to invalidate the previously-stored value.
-
 ## What's at risk
 
 If the API token is exfiltrated, an attacker can authenticate to Jira as

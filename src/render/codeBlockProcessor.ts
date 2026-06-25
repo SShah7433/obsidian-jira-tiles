@@ -20,6 +20,7 @@ import {
   displayOptionsFromSettings,
   renderInto,
   renderInvalidBlock,
+  type RenderContext,
 } from "./tile";
 import type { PluginSettings } from "../settings/types";
 
@@ -31,6 +32,28 @@ export interface CodeBlockProcessorDeps {
   getSettings: () => PluginSettings;
   /** Called to open a URL — defaults to window.open. */
   openUrl?: (url: string) => void;
+}
+
+/**
+ * Build a `RenderContext` (the fetch/display/open wiring a tile needs) from
+ * the host-plugin dependencies + current settings. Shared by the code-block
+ * processor and the inline-link processor so both render identically.
+ */
+export function makeRenderContext(
+  deps: CodeBlockProcessorDeps,
+  settings: PluginSettings,
+): RenderContext {
+  return {
+    buildIssueUrl: (key: string) => buildIssueUrl(key, settings),
+    fetch: (key, force) =>
+      deps.cache.getOrFetch(
+        key,
+        () => deps.client.getIssue(key, fieldsForRequest(settings)),
+        force,
+      ),
+    display: displayOptionsFromSettings(settings),
+    open: deps.openUrl,
+  };
 }
 
 /**
@@ -52,19 +75,7 @@ export function buildCodeBlockProcessor(
       throw err;
     }
 
-    const settings = deps.getSettings();
-
-    void renderInto(el, request, {
-      buildIssueUrl: (key: string) => buildIssueUrl(key, settings),
-      fetch: (key, force) =>
-        deps.cache.getOrFetch(
-          key,
-          () => deps.client.getIssue(key, fieldsForRequest(settings)),
-          force,
-        ),
-      display: displayOptionsFromSettings(settings),
-      open: deps.openUrl,
-    });
+    void renderInto(el, request, makeRenderContext(deps, deps.getSettings()));
   };
 }
 

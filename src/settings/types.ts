@@ -44,12 +44,31 @@ export interface CustomFieldConfig {
   enabled: boolean;
 }
 
+/**
+ * How Jira issues are turned into tiles in a note.
+ *
+ *   - "code-block": only fenced ` ```jira ` blocks become tiles (explicit,
+ *     predictable; the original behaviour).
+ *   - "auto-link":  only inline Jira browse URLs (e.g.
+ *     `https://acme.atlassian.net/browse/PROJ-1`) are auto-replaced with a
+ *     tile. Code blocks are left untouched.
+ *   - "both":       code blocks AND inline Jira URLs become tiles.
+ */
+export type RenderMode = "code-block" | "auto-link" | "both";
+
 /** Top-level settings object persisted by Obsidian. */
 export interface PluginSettings {
   /** Which auth method is currently active. */
   authMethod: AuthMethod;
   /** API token state, present only when authMethod === "apiToken". */
   apiToken?: ApiTokenState;
+
+  /**
+   * Which embedding syntax(es) are active. See {@link RenderMode}.
+   * Auto-link mode only rewrites URLs that point at the configured Jira
+   * site, so unrelated links are never touched.
+   */
+  renderMode: RenderMode;
 
   /* Standard field display toggles ----------------------------------------- */
   showStatus: boolean;
@@ -75,12 +94,4 @@ export interface PluginSettings {
    * data.json carries site URLs, email, and feature toggles only.
    */
   storageWarningAcknowledged: boolean;
-
-  /**
-   * Indicates that we successfully migrated any pre-SecretStorage tokens
-   * (which lived as plain text in this object) into SecretStorage. Set on
-   * the migration's first successful run. Subsequent loads see this flag
-   * and skip the migration path.
-   */
-  secretsMigrationComplete?: boolean;
 }

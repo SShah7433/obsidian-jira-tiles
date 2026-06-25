@@ -3,8 +3,9 @@
   "name": "Jira Tiles",
   "version": "0.1.0",
   "minAppVersion": "1.11.4",
-  "description": "Embed live Atlassian Jira Cloud issues as rich tiles in your notes using fenced code blocks. Mobile-friendly.",
+  "description": "Embed live Atlassian Jira Cloud issues as rich tiles in your notes via code blocks or auto-linked issue URLs. Mobile-friendly.",
   "author": "Sidd Shah",
-  "authorUrl": "https://github.com/siddshah",
+  "authorUrl": "https://github.com/SShah7433",
+  "fundingUrl": "https://buymeacoffee.com/siddshah",
   "isDesktopOnly": false
 }
