@@ -145,6 +145,25 @@ you can access at least one site.
 The user clicked Cancel/Reject in the consent screen, or your OAuth app
 doesn't have the requested scopes configured. Re-check step 2.
 
+If you instead see `access_denied: Unauthorized` returned from
+`/oauth/token` (in DevTools, after the consent screen succeeded), the
+likely causes are:
+
+- The OAuth app's **Callback URL** in the Developer Console doesn't match
+  `obsidian://jira-tiles-auth-callback` exactly. Atlassian compares
+  redirect URIs literally — no trailing slash, lowercase, exact scheme.
+- The PKCE `code_verifier` doesn't match the `code_challenge` from the
+  authorize request. This shouldn't happen with the bundled flow, but if
+  you opened the authorize URL more than once and authorized in a stale
+  tab, the active session's verifier is wrong. Click **Disconnect** and
+  **Connect** again.
+- The token endpoint rejected the body's content type. The plugin tries
+  `application/json` (matching Atlassian's docs example) and falls back
+  to `application/x-www-form-urlencoded` on a 401. Look for
+  `[jira-tiles] OAuth response status (form-encoded retry)` in DevTools
+  to see which one your environment accepts. If both fail, file a bug
+  with the full DevTools log.
+
 ### Refresh tokens not rotating correctly
 
 Atlassian rotates refresh tokens on every refresh. The plugin always
@@ -153,9 +172,33 @@ failed" repeatedly after a successful initial connection, your refresh
 token may have been used twice (e.g. a stale instance running). Click
 **Disconnect** and **Connect** again.
 
+## Spec audit
+
+This plugin's OAuth implementation has been audited against
+[Atlassian's official 3LO docs](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/):
+
+| Step | Spec | Plugin | OK |
+|------|------|--------|----|
+| Authorize URL | `https://auth.atlassian.com/authorize` with `audience, client_id, scope, redirect_uri, state, response_type=code, prompt=consent` | ✅ all params + PKCE `code_challenge` (S256) | ✅ |
+| State parameter | non-guessable, bound to user session | ✅ 16 random bytes (Web Crypto), validated on callback | ✅ |
+| Token endpoint | `POST https://auth.atlassian.com/oauth/token` | ✅ | ✅ |
+| Body content type | `application/json` per docs | ✅ JSON first, form-encoded fallback on 401 (defensive) | ✅ |
+| Body fields (auth code) | `grant_type, client_id, client_secret, code, redirect_uri` | ⚠ public-client variant: `client_id, code, redirect_uri, code_verifier` (PKCE — no secret shipped, RFC 7636) | ⚠ |
+| Site discovery | `GET https://api.atlassian.com/oauth/token/accessible-resources` with `Bearer` | ✅ | ✅ |
+| Request URL pattern | `https://api.atlassian.com/ex/jira/{cloudid}/{api}` | ✅ | ✅ |
+| Refresh grant | `grant_type=refresh_token, client_id, client_secret, refresh_token` | ⚠ public-client variant: omits `client_secret` | ⚠ |
+| Token rotation | "Replace existing refresh token with the new one" | ✅ done in `OAuthFlow.refresh()` after every successful exchange | ✅ |
+
+The two ⚠ items reflect that this plugin is a **public/native client**
+(distributed inside Obsidian; no per-user `client_secret`). RFC 7636 (PKCE)
+substitutes `code_verifier` for `client_secret`. Atlassian's auth.atlassian.com
+endpoint supports PKCE — the JWT in a successful authorize callback contains
+`"client_auth_type":"NONE"` confirming this — but their docs page does not
+explicitly cover the public-client flow.
+
 ## References
 
 - [Atlassian: OAuth 2.0 (3LO) apps](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/)
-- [Atlassian: Implementing PKCE](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/#implementing-a-proof-key-for-code-exchange--pkce-)
 - [RFC 7636: Proof Key for Code Exchange](https://datatracker.ietf.org/doc/html/rfc7636)
-- [Atlassian: Accessible resources endpoint](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/#3--make-calls-to-the-api-using-the-access-token)
+- [RFC 8252: OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252)
+- [RFC 6749: OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749)

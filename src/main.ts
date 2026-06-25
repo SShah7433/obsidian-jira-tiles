@@ -101,46 +101,103 @@ export default class JiraTilesPlugin extends Plugin {
         openExternalUrl(url);
       },
       http: async (url, body) => {
-        // Atlassian's token endpoint follows OAuth 2.0 RFC 6749 §4.1.3 and
-        // accepts application/x-www-form-urlencoded bodies. (Their docs also
-        // show a JSON example, but JSON bodies have empirically returned
-        // `access_denied: Unauthorized` 401s on some accounts — possibly
-        // due to body parsing differences across their edge proxies.
-        // Form-encoded is the standard and works reliably.)
-        const formBody = new URLSearchParams(body).toString();
-        // Redact `code` and `code_verifier` (sensitive) before logging.
-        const redactedKeys = new Set(["code", "code_verifier", "refresh_token"]);
+        // Atlassian's docs (https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/)
+        // specify Content-Type: application/json with a JSON body, e.g.
+        //   { "grant_type": "authorization_code", "client_id": "...",
+        //     "client_secret": "...", "code": "...", "redirect_uri": "..." }
+        // Our implementation is a *public client* using PKCE (RFC 7636), so
+        // we send `code_verifier` instead of `client_secret`. Atlassian's
+        // auth.atlassian.com endpoint marks the client as
+        // `client_auth_type: NONE` when authorize was called with
+        // `code_challenge`, and accepts `code_verifier` at the token
+        // endpoint. Both JSON and application/x-www-form-urlencoded bodies
+        // are accepted in practice; we try JSON first (matches the docs)
+        // and fall back to form-encoded on a 401, since some endpoints /
+        // proxies have been observed to reject one or the other. Form
+        // fallback is only attempted when JSON returns a generic
+        // 401 access_denied so we don't mask other errors.
+        const redactedKeys = new Set([
+          "code",
+          "code_verifier",
+          "refresh_token",
+          "client_secret",
+        ]);
         const redactedBody = Object.fromEntries(
           Object.entries(body).map(([k, v]) =>
             redactedKeys.has(k) ? [k, `<${(v as string).length} chars>`] : [k, v],
           ),
         );
-        console.log("[jira-tiles] OAuth POST", url, "body:", redactedBody);
-        try {
+
+        type WireResponse = { status: number; json: unknown; text: string };
+
+        const send = async (
+          contentType: "application/json" | "application/x-www-form-urlencoded",
+          serialized: string,
+        ): Promise<WireResponse> => {
           const res = await requestUrl({
             url,
             method: "POST",
             headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
+              "Content-Type": contentType,
               Accept: "application/json",
             },
-            body: formBody,
+            body: serialized,
             throw: false,
           });
-          // requestUrl's `json` getter throws when body is not valid JSON; do
-          // it defensively so we can surface the raw text in error messages.
+          // requestUrl's `json` getter throws when body is not valid JSON;
+          // be defensive so we can surface the raw text in error messages.
           let json: unknown = undefined;
           try {
             json = res.json;
           } catch {
             json = undefined;
           }
+          return { status: res.status, json, text: res.text ?? "" };
+        };
+
+        console.log(
+          "[jira-tiles] OAuth POST",
+          url,
+          "body:",
+          redactedBody,
+          "(json)",
+        );
+        try {
+          let res = await send("application/json", JSON.stringify(body));
           console.log(
-            "[jira-tiles] OAuth response status:",
+            "[jira-tiles] OAuth response status (json):",
             res.status,
             "body length:",
-            (res.text ?? "").length,
+            res.text.length,
           );
+          if (res.status === 401) {
+            // Belt-and-suspenders: try form-encoded once. Some Atlassian
+            // edge proxies have rejected JSON bodies for PKCE clients with
+            // `access_denied: Unauthorized`. Form-encoded matches OAuth 2.0
+            // RFC 6749 §4.1.3 and works as a fallback. We log clearly so
+            // the user knows in DevTools which content type their site
+            // accepts.
+            console.warn(
+              "[jira-tiles] JSON token request returned 401; retrying with form-encoded body",
+            );
+            const formRes = await send(
+              "application/x-www-form-urlencoded",
+              new URLSearchParams(body).toString(),
+            );
+            console.log(
+              "[jira-tiles] OAuth response status (form-encoded retry):",
+              formRes.status,
+              "body length:",
+              formRes.text.length,
+            );
+            if (formRes.status >= 200 && formRes.status < 300) {
+              return formRes;
+            }
+            // Surface whichever response is more informative — prefer the
+            // one that came back with an error_description body.
+            const formHasBody = formRes.text && formRes.text.length > 0;
+            res = formHasBody ? formRes : res;
+          }
           if (res.status < 200 || res.status >= 300) {
             console.error(
               "[jira-tiles] OAuth HTTP error",
@@ -148,7 +205,7 @@ export default class JiraTilesPlugin extends Plugin {
               res.text,
             );
           }
-          return { status: res.status, json, text: res.text ?? "" };
+          return res;
         } catch (err) {
           console.error("[jira-tiles] OAuth HTTP request threw:", err);
           throw err;
