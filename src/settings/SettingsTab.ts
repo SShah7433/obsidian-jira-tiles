@@ -1,16 +1,12 @@
 /**
  * Plugin settings tab.
  *
- * Phase 1 ships:
- *   - A security warning banner about plain-text token storage in data.json.
- *   - An API token form (site URL, email, token) with input validation.
- *   - Basic display toggles (status, priority, assignee, due date, issue type).
- *   - Cache TTL slider.
- *   - Custom fields list (UI present, formatters wired up in Phase 4).
- *
- * Later phases extend this with:
- *   - OAuth "Connect" / "Disconnect" buttons (Phase 3).
- *   - "Discover fields from Jira" picker (Phase 4).
+ * Sections rendered:
+ *   - Storage notice (informational; warning when SecretStorage is missing).
+ *   - Connection: API token form (site URL, email, token-secret picker).
+ *   - Display: standard field toggles + cache TTL slider.
+ *   - Custom fields: configurable list + "Discover from Jira" modal picker.
+ *   - Advanced: clear cache.
  */
 
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
@@ -32,11 +28,6 @@ export interface JiraTilesPluginLike {
   saveSettings(): Promise<void>;
   /** Called by the tab when the active auth method changes so caches/state can reset. */
   onAuthChanged(): void;
-  /**
-   * Optional OAuth orchestration handle — present in the real plugin, omitted
-   * in tests / lightweight harnesses.
-   */
-  oauthFlow?: { beginConnect(): Promise<unknown>; cancelAll(reason?: string): void };
   /** Jira client — used by the field discovery picker. Optional for harnesses. */
   client?: import("../jira/client").JiraClient;
   /** Secret store handle — used to write the API token after the user enters it. */
@@ -111,78 +102,13 @@ export class JiraTilesSettingTab extends PluginSettingTab {
 
   private renderConnectionSection(parent: HTMLElement): void {
     parent.createEl("h2", { text: "Connection" });
-
-    /* OAuth section ------------------------------------------------------- */
-
-    parent.createEl("h3", { text: "OAuth (recommended)" });
     parent.createEl("p", {
       cls: "setting-item-description",
       text:
-        "OAuth supports SSO and avoids static credentials. The plugin will " +
-        "open your browser to authorize, and Atlassian will redirect back " +
-        "to Obsidian via a custom URI handler.",
-    });
-
-    if (this.plugin.settings.authMethod === "oauth" && this.plugin.settings.oauth) {
-      const o = this.plugin.settings.oauth;
-      new Setting(parent)
-        .setName("Connected")
-        .setDesc(`${o.siteName} (${o.siteUrl})`)
-        .addButton((btn) =>
-          btn
-            .setButtonText("Disconnect")
-            .setWarning()
-            .onClick(async () => {
-              this.plugin.settings.authMethod = "none";
-              this.plugin.settings.oauth = undefined;
-              await this.plugin.saveSettings();
-              this.plugin.onAuthChanged();
-              new Notice("Disconnected from Jira.");
-              this.display();
-            }),
-        );
-    } else {
-      new Setting(parent)
-        .setName("Connect with Atlassian")
-        .setDesc(
-          "Opens https://auth.atlassian.com in your browser, then returns to Obsidian.",
-        )
-        .addButton((btn) =>
-          btn
-            .setButtonText("Connect")
-            .setCta()
-            .onClick(async () => {
-              if (!this.plugin.oauthFlow) {
-                new Notice("OAuth not available in this build.");
-                return;
-              }
-              try {
-                new Notice("Opening browser to sign in…");
-                await this.plugin.oauthFlow.beginConnect();
-                new Notice("Connected to Jira.");
-                this.plugin.onAuthChanged();
-                this.display();
-              } catch (err) {
-                // Longer Notice timeout (10s) so the user has time to read
-                // the actual error before it disappears. Also log the full
-                // error to the console for DevTools debugging.
-                console.error("[jira-tiles] Connect failed:", err);
-                const msg = (err as Error).message ?? String(err);
-                new Notice(`Sign-in failed: ${msg}`, 10_000);
-              }
-            }),
-        );
-    }
-
-    /* API token section --------------------------------------------------- */
-
-    parent.createEl("h3", { text: "API token (fallback)" });
-    parent.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "Use an Atlassian API token. Generate at " +
-        "https://id.atlassian.com/manage-profile/security/api-tokens. " +
-        "Suitable when OAuth/SSO is not available.",
+        "Authenticate with an Atlassian API token. Generate one at " +
+        "https://id.atlassian.com/manage-profile/security/api-tokens — your " +
+        "regular Atlassian login (including SSO-linked accounts) can mint " +
+        "tokens.",
     });
 
     /**

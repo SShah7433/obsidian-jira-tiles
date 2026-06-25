@@ -1,5 +1,6 @@
 /**
- * Tests for src/auth/migration.ts — the legacy-to-SecretStorage migration.
+ * Tests for src/auth/migration.ts — the legacy-to-SecretStorage migration
+ * + OAuth state cleanup.
  */
 
 import { migrateSecretsIfNeeded } from "../../src/auth/migration";
@@ -33,11 +34,10 @@ describe("migrateSecretsIfNeeded", () => {
     const settings: PluginSettings = { ...DEFAULT_SETTINGS };
     const { service } = fakeSecrets();
     const result = await migrateSecretsIfNeeded(settings, service);
-    // Migration completes (flag flips), but no credentials moved.
     expect(result.migrated).toBe(false);
+    expect(result.oauthDropped).toBe(false);
     expect(settings.secretsMigrationComplete).toBe(true);
     expect(settings.apiToken).toBeUndefined();
-    expect(settings.oauth).toBeUndefined();
   });
 
   it("is idempotent — running twice does not duplicate work", async () => {
@@ -71,6 +71,7 @@ describe("migrateSecretsIfNeeded", () => {
 
     expect(result.migrated).toBe(true);
     expect(result.ephemeral).toBe(false);
+    expect(result.oauthDropped).toBe(false);
     // Plain-text value moved into SecretStorage.
     expect(store.get(INTERNAL_SECRETS.defaultApiToken)).toBe("ATATT-secret");
     // Settings now references the *name*, not the value.
@@ -82,59 +83,37 @@ describe("migrateSecretsIfNeeded", () => {
     expect(settings.secretsMigrationComplete).toBe(true);
   });
 
-  it("migrates legacy OAuth access + refresh tokens into SecretStorage", async () => {
-    const settings: PluginSettings = {
+  it("drops vestigial OAuth state and removes any cached OAuth secrets", async () => {
+    // Older builds wrote `oauth: {...}` and `authMethod: "oauth"` into
+    // settings, plus access/refresh tokens into SecretStorage. The
+    // migration now removes all of that.
+    const legacy = {
       ...DEFAULT_SETTINGS,
       authMethod: "oauth",
-      // Legacy shape.
       oauth: {
-        accessToken: "AT-old",
-        refreshToken: "RT-old",
+        accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
+        refreshTokenSecretName: INTERNAL_SECRETS.oauthRefreshToken,
         expiresAt: 1234,
         cloudId: "c",
         siteUrl: "https://x.atlassian.net",
         siteName: "X",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as unknown as PluginSettings["oauth"],
-    };
+      },
+    } as unknown as PluginSettings;
     const { service, store } = fakeSecrets();
+    // Seed the SecretStorage with the previously-stored OAuth secrets.
+    await service.set(INTERNAL_SECRETS.oauthAccessToken, "AT-old");
+    await service.set(INTERNAL_SECRETS.oauthRefreshToken, "RT-old");
 
-    const result = await migrateSecretsIfNeeded(settings, service);
+    const result = await migrateSecretsIfNeeded(legacy, service);
 
     expect(result.migrated).toBe(true);
-    expect(store.get(INTERNAL_SECRETS.oauthAccessToken)).toBe("AT-old");
-    expect(store.get(INTERNAL_SECRETS.oauthRefreshToken)).toBe("RT-old");
-    expect(settings.oauth).toEqual({
-      accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
-      refreshTokenSecretName: INTERNAL_SECRETS.oauthRefreshToken,
-      expiresAt: 1234,
-      cloudId: "c",
-      siteUrl: "https://x.atlassian.net",
-      siteName: "X",
-    });
-  });
-
-  it("migrates OAuth state with no refresh_token (rare, but possible)", async () => {
-    const settings: PluginSettings = {
-      ...DEFAULT_SETTINGS,
-      authMethod: "oauth",
-      oauth: {
-        accessToken: "AT-only",
-        // no refreshToken
-        expiresAt: 1234,
-        cloudId: "c",
-        siteUrl: "https://x.atlassian.net",
-        siteName: "X",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as unknown as PluginSettings["oauth"],
-    };
-    const { service, store } = fakeSecrets();
-
-    await migrateSecretsIfNeeded(settings, service);
-
-    expect(store.get(INTERNAL_SECRETS.oauthAccessToken)).toBe("AT-only");
+    expect(result.oauthDropped).toBe(true);
+    expect(result.message).toMatch(/OAuth support was removed/);
+    expect((legacy as unknown as { oauth?: unknown }).oauth).toBeUndefined();
+    expect(legacy.authMethod).toBe("none");
+    // SecretStorage cleanup.
+    expect(store.has(INTERNAL_SECRETS.oauthAccessToken)).toBe(false);
     expect(store.has(INTERNAL_SECRETS.oauthRefreshToken)).toBe(false);
-    expect(settings.oauth?.refreshTokenSecretName).toBe("");
   });
 
   it("flags ephemeral=true when SecretStorage is unavailable", async () => {
@@ -166,7 +145,6 @@ describe("migrateSecretsIfNeeded", () => {
     };
     const { service, store } = fakeSecrets();
     const result = await migrateSecretsIfNeeded(settings, service);
-    // No legacy token to move — but flag flips so we don't re-run.
     expect(result.migrated).toBe(false);
     expect(store.size).toBe(0);
     expect(settings.apiToken?.tokenSecretName).toBe("user-named-secret");

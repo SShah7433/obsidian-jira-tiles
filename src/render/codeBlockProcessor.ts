@@ -84,9 +84,7 @@ export function fieldsForRequest(settings: PluginSettings): readonly string[] {
 /** Build an https://<site>/browse/KEY URL based on the active auth method. */
 export function buildIssueUrl(key: string, settings: PluginSettings): string {
   const site =
-    (settings.authMethod === "oauth" && settings.oauth?.siteUrl) ||
-    (settings.authMethod === "apiToken" && settings.apiToken?.siteUrl) ||
-    "";
+    (settings.authMethod === "apiToken" && settings.apiToken?.siteUrl) || "";
   if (!site) {
     // Last-resort fallback so the link is still openable.
     return `https://your-site.atlassian.net/browse/${encodeURIComponent(key)}`;

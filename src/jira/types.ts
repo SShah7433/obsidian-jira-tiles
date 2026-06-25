@@ -145,15 +145,6 @@ export interface JiraFieldMeta {
   schema?: { type?: string; custom?: string; items?: string };
 }
 
-/** Result of `GET /oauth/token/accessible-resources`. */
-export interface AccessibleResource {
-  id: string;       // cloudId
-  url: string;      // site URL
-  name: string;     // human-friendly site name
-  scopes: string[];
-  avatarUrl?: string;
-}
-
 /** Structured error thrown by the Jira client. */
 export class JiraApiError extends Error {
   constructor(

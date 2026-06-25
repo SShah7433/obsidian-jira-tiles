@@ -30,7 +30,7 @@ function fakeSecrets(values: Record<string, string>): SecretsService {
 }
 
 function makeAuthMgr(over: Partial<PluginSettings> = {}): AuthManager {
-  let s: PluginSettings = {
+  const s: PluginSettings = {
     ...DEFAULT_SETTINGS,
     authMethod: "apiToken",
     apiToken: {
@@ -41,12 +41,7 @@ function makeAuthMgr(over: Partial<PluginSettings> = {}): AuthManager {
     ...over,
   };
   const secrets = fakeSecrets({ "jira-tiles:api-token": "T" });
-  return new AuthManager(
-    () => s,
-    async () => {},
-    null,
-    secrets,
-  );
+  return new AuthManager(() => s, secrets);
 }
 
 describe("JiraClient.getIssue", () => {
@@ -98,7 +93,7 @@ describe("JiraClient.getIssue", () => {
     });
   });
 
-  it("maps 401 with non-refreshable auth straight to JiraApiError", async () => {
+  it("maps 401 directly to JiraApiError with no retry (API token has no recovery)", async () => {
     let attempts = 0;
     const client = new JiraClient({
       authManager: makeAuthMgr(),
@@ -108,106 +103,19 @@ describe("JiraClient.getIssue", () => {
       },
     });
     await expect(client.getIssue("PROJ-1")).rejects.toMatchObject({ status: 401 });
-    expect(attempts).toBe(1); // no retry for non-refreshable auth
+    expect(attempts).toBe(1);
   });
 
-  it("retries once on 401 when auth is refreshable (OAuth)", async () => {
-    const s: PluginSettings = {
-      ...DEFAULT_SETTINGS,
-      authMethod: "oauth",
-      oauth: {
-        accessTokenSecretName: "jira-tiles:oauth-access-token",
-        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
-        expiresAt: Date.now() + 60 * 60_000,
-        cloudId: "cid",
-        siteUrl: "https://acme.atlassian.net",
-        siteName: "Acme",
-      },
-    };
-    const secrets = fakeSecrets({
-      "jira-tiles:oauth-access-token": "TOK",
-    });
-    const mgr = new AuthManager(
-      () => s,
-      async () => {},
-      async () => {
-        // Pretend we got a fresh token: swap the secret value.
-        await secrets.set("jira-tiles:oauth-access-token", "TOK2");
-        s.oauth!.expiresAt = Date.now() + 3600_000;
-      },
-      secrets,
-    );
-    let attempts = 0;
-    const client = new JiraClient({
-      authManager: mgr,
-      request: async (p) => {
-        attempts++;
-        if (attempts === 1) {
-          return { status: 401, headers: {}, text: "", json: {} };
-        }
-        // Verify the second attempt uses the refreshed token.
-        expect(p.headers?.Authorization).toBe("Bearer TOK2");
-        return { status: 200, headers: {}, text: "{}", json: { key: "PROJ-1", fields: {} } };
-      },
-    });
-    const issue = await client.getIssue("PROJ-1");
-    expect(issue.key).toBe("PROJ-1");
-    expect(attempts).toBe(2);
-  });
-
-  it("uses api.atlassian.com proxy for OAuth", async () => {
-    const s: PluginSettings = {
-      ...DEFAULT_SETTINGS,
-      authMethod: "oauth",
-      oauth: {
-        accessTokenSecretName: "jira-tiles:oauth-access-token",
-        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
-        expiresAt: Date.now() + 3600_000,
-        cloudId: "abc-123",
-        siteUrl: "https://acme.atlassian.net",
-        siteName: "Acme",
-      },
-    };
-    const secrets = fakeSecrets({
-      "jira-tiles:oauth-access-token": "TOK",
-    });
-    const mgr = new AuthManager(
-      () => s,
-      async () => {},
-      async () => {},
-      secrets,
-    );
+  it("targets the configured site URL", async () => {
     let captured = "";
     const client = new JiraClient({
-      authManager: mgr,
+      authManager: makeAuthMgr(),
       request: async (p) => {
         captured = p.url;
         return { status: 200, headers: {}, text: "{}", json: { key: "PROJ-1", fields: {} } };
       },
     });
     await client.getIssue("PROJ-1");
-    expect(captured).toContain("https://api.atlassian.com/ex/jira/abc-123/rest/api/3/issue/PROJ-1");
-  });
-});
-
-describe("JiraClient.getAccessibleResources", () => {
-  it("calls accessible-resources with bearer token", async () => {
-    let captured: { url?: string; headers?: Record<string, string> } = {};
-    const client = new JiraClient({
-      authManager: makeAuthMgr(),
-      request: async (p) => {
-        captured = { url: p.url, headers: p.headers };
-        return {
-          status: 200,
-          headers: {},
-          text: "[]",
-          json: [{ id: "cid", url: "https://acme.atlassian.net", name: "Acme", scopes: [] }],
-        };
-      },
-    });
-    const res = await client.getAccessibleResources("ACCESS_TOKEN");
-    expect(res).toHaveLength(1);
-    expect(captured.url).toBe("https://api.atlassian.com/oauth/token/accessible-resources");
-    expect(captured.headers?.Authorization).toBe("Bearer ACCESS_TOKEN");
+    expect(captured.startsWith("https://acme.atlassian.net/rest/api/3/issue/PROJ-1")).toBe(true);
   });
 });

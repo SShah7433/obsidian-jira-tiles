@@ -6,10 +6,12 @@
  * `secretsMigrationComplete` flag in PluginSettings prevents re-running.
  *
  * What we migrate:
- *   - `apiToken.token`  -> SecretStorage[`jira-tiles:api-token`]
- *                        and `apiToken.tokenSecretName` set to that name.
- *   - `oauth.accessToken` and `oauth.refreshToken` -> SecretStorage with
- *     internal names; corresponding `*SecretName` fields set in `oauth`.
+ *   - Legacy `apiToken.token` (plain string) ->
+ *     SecretStorage[`jira-tiles:api-token`] and
+ *     `apiToken.tokenSecretName` set to that name.
+ *   - Legacy `oauth` block (any plugin version that supported OAuth) ->
+ *     dropped entirely, since OAuth is no longer supported. The user is
+ *     informed via Notice and asked to set up an API token instead.
  *
  * If SecretStorage is unavailable (older Obsidian) we still run the migration
  * but the secrets land in the in-memory fallback — they'll be wiped on
@@ -31,6 +33,8 @@ export interface MigrationResult {
   migrated: boolean;
   /** True iff secrets were written to memory-fallback (will not survive reload). */
   ephemeral: boolean;
+  /** True iff a legacy OAuth block was dropped (user should re-auth via API token). */
+  oauthDropped: boolean;
   /** Human-readable summary suitable for a Notice. */
   message: string | null;
 }
@@ -48,10 +52,16 @@ export async function migrateSecretsIfNeeded(
   NoticeCtor?: typeof Notice,
 ): Promise<MigrationResult> {
   if (settings.secretsMigrationComplete) {
-    return { migrated: false, ephemeral: false, message: null };
+    return {
+      migrated: false,
+      ephemeral: false,
+      oauthDropped: false,
+      message: null,
+    };
   }
 
   let migratedSomething = false;
+  let oauthDropped = false;
 
   /* API token --------------------------------------------------------- */
 
@@ -78,68 +88,64 @@ export async function migrateSecretsIfNeeded(
     }
   }
 
-  /* OAuth tokens ------------------------------------------------------ */
+  /* OAuth state ------------------------------------------------------- */
 
-  const legacyOauth = settings.oauth as unknown as
-    | {
-        accessToken?: string;
-        refreshToken?: string;
-        accessTokenSecretName?: string;
-        refreshTokenSecretName?: string;
-        expiresAt?: number;
-        cloudId?: string;
-        siteUrl?: string;
-        siteName?: string;
-      }
-    | undefined;
-  if (
-    legacyOauth?.accessToken &&
-    !legacyOauth.accessTokenSecretName
-  ) {
+  // OAuth is no longer supported. If we find any vestige of an OAuth state,
+  // drop it cleanly so the saved settings stop carrying stale fields.
+  const settingsWithLegacyOauth = settings as unknown as {
+    oauth?: unknown;
+    authMethod?: string;
+  };
+  if (settingsWithLegacyOauth.oauth) {
+    delete settingsWithLegacyOauth.oauth;
+    if (settingsWithLegacyOauth.authMethod === "oauth") {
+      settingsWithLegacyOauth.authMethod = "none";
+    }
+    oauthDropped = true;
+    migratedSomething = true;
+    // Best-effort cleanup of any access/refresh secrets that earlier
+    // versions of the plugin wrote into SecretStorage. Removing here keeps
+    // SecretStorage tidy; failure is non-fatal.
     try {
-      await secrets.set(
-        INTERNAL_SECRETS.oauthAccessToken,
-        legacyOauth.accessToken,
-      );
-      if (legacyOauth.refreshToken) {
-        await secrets.set(
-          INTERNAL_SECRETS.oauthRefreshToken,
-          legacyOauth.refreshToken,
-        );
-      }
-      settings.oauth = {
-        accessTokenSecretName: INTERNAL_SECRETS.oauthAccessToken,
-        refreshTokenSecretName: legacyOauth.refreshToken
-          ? INTERNAL_SECRETS.oauthRefreshToken
-          : "",
-        expiresAt: legacyOauth.expiresAt ?? 0,
-        cloudId: legacyOauth.cloudId ?? "",
-        siteUrl: legacyOauth.siteUrl ?? "",
-        siteName: legacyOauth.siteName ?? "",
-      };
-      migratedSomething = true;
-      console.log("[jira-tiles] migrated OAuth tokens into SecretStorage");
+      await secrets.remove(INTERNAL_SECRETS.oauthAccessToken);
+      await secrets.remove(INTERNAL_SECRETS.oauthRefreshToken);
     } catch (err) {
-      console.error("[jira-tiles] failed to migrate OAuth tokens:", err);
+      console.warn(
+        "[jira-tiles] failed to remove legacy OAuth secrets (non-fatal):",
+        err,
+      );
     }
   }
 
   settings.secretsMigrationComplete = true;
 
   if (!migratedSomething) {
-    return { migrated: false, ephemeral: false, message: null };
+    return {
+      migrated: false,
+      ephemeral: false,
+      oauthDropped: false,
+      message: null,
+    };
   }
 
   const ephemeral = !secrets.isAvailable;
-  const message = ephemeral
-    ? "Jira credentials were moved out of data.json, but Obsidian's " +
+  let message: string;
+  if (oauthDropped) {
+    message =
+      "OAuth support was removed. Set up an Atlassian API token in plugin " +
+      "settings to keep using Jira Tiles.";
+  } else if (ephemeral) {
+    message =
+      "Jira credentials were moved out of data.json, but Obsidian's " +
       "SecretStorage is unavailable on this version — you'll need to " +
-      "re-enter credentials in settings each time you reload."
-    : "Jira credentials were moved into Obsidian's secure SecretStorage.";
+      "re-enter credentials in settings each time you reload.";
+  } else {
+    message = "Jira credentials were moved into Obsidian's secure SecretStorage.";
+  }
 
   if (NoticeCtor) {
     new NoticeCtor(message, 12_000);
   }
 
-  return { migrated: true, ephemeral, message };
+  return { migrated: true, ephemeral, oauthDropped, message };
 }

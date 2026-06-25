@@ -7,21 +7,20 @@ read this document before configuring the plugin.
 
 The plugin uses Obsidian's
 [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage) API
-(introduced in Obsidian 1.5+). Tokens (Atlassian API tokens, OAuth access /
-refresh tokens) never touch the plugin's `data.json` — only the *names* of
-secrets are persisted there. The actual values live in Obsidian's per-install
-secret store, which is local to your machine and is **not synced**.
+(introduced in Obsidian 1.5+). The Atlassian API token never touches the
+plugin's `data.json` — only the *name* of the SecretStorage entry is
+persisted there. The actual value lives in Obsidian's per-install secret
+store, which is local to your machine and is **not synced**.
 
 `data.json` (`<your-vault>/.obsidian/plugins/obsidian-jira-tiles/data.json`)
 contains:
 
 - Site URL, email
 - Display preferences and feature toggles
-- The names that point at SecretStorage entries (e.g. `jira-tiles:api-token`)
-- Cached `cloudId`, site name (no credentials)
+- The name that points at the SecretStorage entry (e.g. `jira-tiles:api-token`)
 
-So if someone reads your `data.json`, they see metadata about which secrets
-the plugin uses, but not the secret values.
+So if someone reads your `data.json`, they see metadata about which secret
+the plugin uses, but not the secret value.
 
 ### Older Obsidian versions
 
@@ -33,32 +32,34 @@ effect. Update Obsidian to 1.5 or newer for persistent secure storage.
 
 ### Migration from earlier plugin versions
 
-Plugin versions prior to 0.2.0 stored tokens as plain text in `data.json`. On
-first load after upgrading, the plugin runs a one-shot migration that copies
-those tokens into SecretStorage and clears the plain-text fields. The old
-copy in `data.json` is overwritten on the next save. If you want to be
-extra safe after upgrading, also rotate your Atlassian API token to
-invalidate the previously-leaked value.
+Plugin versions prior to 0.2.0 stored tokens as plain text in `data.json`,
+and earlier still attempted an OAuth 2.0 flow. On first load after
+upgrading, the plugin runs a one-shot migration that:
+
+1. Copies any plain-text API token into SecretStorage and clears the field
+   from `data.json`.
+2. Drops any vestigial OAuth state (the OAuth flow was removed) and prompts
+   the user via Notice to configure an API token.
+
+If you want to be extra safe after upgrading, also rotate your Atlassian
+API token to invalidate the previously-stored value.
 
 ## What's at risk
 
-| Method     | Lost if exfiltrated                                                |
-|------------|--------------------------------------------------------------------|
-| OAuth      | Access + refresh tokens. Read-only Jira scopes (no write).         |
-| API token  | Full programmatic access to your Jira account.                     |
+If the API token is exfiltrated, an attacker can authenticate to Jira as
+the token-issuing account. Use a token tied to a least-privilege account
+when possible. Atlassian API tokens cover the full account; they are not
+scoped down to read-only.
 
 ## Mitigations the plugin uses
 
 - **Secrets stored in Obsidian's SecretStorage**, not in vault `data.json`.
-- **OAuth uses PKCE** (no `client_secret` shipped, so a leaked plugin
-  package can't be used to mint new tokens for arbitrary users).
-- **OAuth scopes are minimal** — `read:jira-work`, `read:jira-user`,
-  `offline_access`. The plugin cannot edit issues, post comments, or
-  transition workflows even if compromised.
 - **Tokens are masked in the settings UI** (the SecretComponent picker
   and the password-typed fallback input both hide the value).
 - **Tokens are never logged** to console. The diagnostic log shows lengths
   and key names, never the credential body.
+- **Read-only API access**: the plugin's Jira client only issues GET
+  requests. Even if the token grants write access, the plugin never uses it.
 - **One-time informational banner** in settings explains where credentials
   go on this plugin version.
 
@@ -66,19 +67,16 @@ invalidate the previously-leaked value.
 
 - **Rotate API tokens regularly** at
   <https://id.atlassian.com/manage-profile/security/api-tokens>.
-- **Prefer OAuth (PKCE) over API tokens.** Refresh tokens can be revoked
-  from Atlassian's site without rotating other credentials, and the scopes
-  are read-only.
 - **Lock your filesystem.** Full-disk encryption (FileVault, BitLocker,
   LUKS) significantly raises the bar for an attacker recovering tokens
   from SecretStorage.
 
 ## What the plugin does NOT do
 
-- Write to your Jira issues. The OAuth scopes are read-only; the plugin's
-  Jira client only issues GET requests.
-- Send any data anywhere except `*.atlassian.net` and `auth.atlassian.com`.
-  All HTTP traffic is visible in your Obsidian DevTools network tab.
+- Write to your Jira issues. The plugin's Jira client only issues GET
+  requests.
+- Send any data anywhere except `*.atlassian.net`. All HTTP traffic is
+  visible in your Obsidian DevTools network tab.
 - Track usage, telemetry, or analytics.
 - Sync your `data.json` or your SecretStorage entries — Obsidian Sync /
   iCloud / Dropbox may sync `data.json` (which now carries no credentials),

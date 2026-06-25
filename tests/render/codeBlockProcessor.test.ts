@@ -17,7 +17,6 @@ function makeFakeClient(issue: JiraIssue): JiraClient {
   return {
     getIssue: async () => issue,
     getFields: async () => [],
-    getAccessibleResources: async () => [],
   } as unknown as JiraClient;
 }
 
@@ -30,24 +29,6 @@ describe("buildIssueUrl", () => {
         siteUrl: "https://acme.atlassian.net",
         email: "a@b.com",
         tokenSecretName: "jira-tiles:api-token",
-      },
-    };
-    expect(buildIssueUrl("PROJ-1", s)).toBe(
-      "https://acme.atlassian.net/browse/PROJ-1",
-    );
-  });
-
-  it("uses the OAuth site when authMethod=oauth", () => {
-    const s = {
-      ...DEFAULT_SETTINGS,
-      authMethod: "oauth" as const,
-      oauth: {
-        accessTokenSecretName: "jira-tiles:oauth-access-token",
-        refreshTokenSecretName: "jira-tiles:oauth-refresh-token",
-        expiresAt: Date.now() + 3600_000,
-        cloudId: "cid",
-        siteUrl: "https://acme.atlassian.net",
-        siteName: "Acme",
       },
     };
     expect(buildIssueUrl("PROJ-1", s)).toBe(
@@ -121,7 +102,6 @@ describe("buildCodeBlockProcessor", () => {
           return { key: "PROJ-1", fields: { summary: "Tested" } } as JiraIssue;
         },
         getFields: async () => [],
-        getAccessibleResources: async () => [],
       } as unknown as JiraClient,
       cache,
       getSettings: () => ({
@@ -154,7 +134,6 @@ describe("buildCodeBlockProcessor", () => {
           return { key: "PROJ-1", fields: { summary: "Cached" } } as JiraIssue;
         },
         getFields: async () => [],
-        getAccessibleResources: async () => [],
       } as unknown as JiraClient,
       cache,
       getSettings: () => ({

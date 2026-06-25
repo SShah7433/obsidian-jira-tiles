@@ -24,7 +24,6 @@ describe("loadFields", () => {
     const client = {
       getFields: async () => sample,
       getIssue: jest.fn(),
-      getAccessibleResources: jest.fn(),
     } as unknown as JiraClient;
     expect(await loadFields(client)).toEqual(sample);
   });

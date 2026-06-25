@@ -7,8 +7,8 @@ Jira REST API client and types.
 | File              | Purpose                                                              |
 |-------------------|----------------------------------------------------------------------|
 | `types.ts`        | Hand-curated type definitions for the Jira REST v3 responses we use  |
-| `client.ts`       | Thin wrapper around `requestUrl` with auth + retry + error mapping   |
-| `fieldDiscovery.ts` | Helpers to fetch and filter custom field metadata (Phase 4)        |
+| `client.ts`       | Thin wrapper around `requestUrl` with auth + error mapping           |
+| `fieldDiscovery.ts` | Helpers to fetch and filter custom field metadata for the picker   |
 
 ## Why not generated types?
 
@@ -20,11 +20,13 @@ guard against the long tail of custom-field shapes.
 
 `JiraClient.getIssue(key, fields[])`:
 
-1. `authManager.ensureFresh()` — proactively refresh OAuth tokens near expiry.
-2. `authManager.getContext()` — produces `{ baseUrl, authorizationHeader, refreshable }`.
-3. `requestUrl({ url, headers, throw: false })` — Obsidian's CORS-free HTTP.
-4. On 401 + `refreshable`: refresh + retry once, then surface the error.
-5. Map non-2xx to `JiraApiError` with a friendly message.
+1. `authManager.getContext()` — produces `{ baseUrl, authorizationHeader }`
+   from the configured API token (token value is resolved from
+   SecretStorage at this point).
+2. `requestUrl({ url, headers, throw: false })` — Obsidian's CORS-free HTTP.
+3. Parse the response body (defensive: falls back to `JSON.parse(text)` if
+   `requestUrl.json` is empty).
+4. Map non-2xx to `JiraApiError` with a friendly message.
 
 The client does NOT cache; that is `IssueCache`'s job.
 

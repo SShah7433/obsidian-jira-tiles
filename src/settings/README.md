@@ -9,6 +9,7 @@ Persisted plugin settings, defaults, and the Obsidian Settings Tab UI.
 | `types.ts`     | TypeScript shape for the persisted `PluginSettings` object    |
 | `defaults.ts`  | Hard-coded defaults + `mergeWithDefaults()` upgrade helper    |
 | `SettingsTab.ts` | Renders the settings UI (auth, display toggles, custom fields) |
+| `FieldPickerModal.ts` | "Discover from Jira" custom-field picker modal            |
 
 ## Persistence
 
@@ -27,14 +28,15 @@ losing user customizations.
 
 ## Settings sections
 
-1. **Security warning banner** (acknowledgeable, dismisses to a quieter form)
-2. **Connection** — API token form; OAuth Connect button arrives in Phase 3
+1. **Storage notice** (informational; warns when SecretStorage is missing)
+2. **Connection** — API token form (site URL, email, token via SecretComponent)
 3. **Display** — toggles for which standard fields render; cache TTL slider
-4. **Custom fields** — list of field IDs + labels; reorderable
-5. **Advanced** — Clear cache, Open data.json location
+4. **Custom fields** — list of field IDs + labels + Discover-from-Jira modal
+5. **Advanced** — Clear cache
 
 ## Sensitive data
 
-`PluginSettings.apiToken` and `PluginSettings.oauth` carry credentials in
-plain text. They are NEVER logged, and the SettingsTab masks the API token
-input. See [SECURITY.md](#security) in the repo root for guidance.
+`PluginSettings.apiToken.tokenSecretName` is the *name* of the SecretStorage
+entry that holds the API token; the token *value* is never written to
+`data.json`. The SettingsTab masks the value in any fallback text input.
+See `SECURITY.md` in the repo root for the full threat model.

@@ -4,18 +4,20 @@
  *
  * The Jira client never reaches into settings directly; instead it asks the
  * AuthManager for an `AuthContext` that carries:
- *   - the Authorization header value (Bearer or Basic)
+ *   - the Authorization header value (Basic for API token)
  *   - the base URL to prefix on requests
  *
- * For OAuth, this is also where transparent token refresh happens.
+ * The token *value* is stored in Obsidian's SecretStorage — this manager
+ * pulls it out by *name* (which is what lives in PluginSettings) at request
+ * time. That makes `getContext` async; the JiraClient already invokes it
+ * from an async context so the cost is just the awaits.
  *
- * Token *values* are stored in Obsidian's SecretStorage — this manager pulls
- * them out by *name* (which is what lives in PluginSettings) at request time.
- * That makes `getContext` async; the JiraClient already invokes it from an
- * async context so the cost is just the awaits.
+ * The plugin used to support OAuth 2.0 (3LO) as well; that was removed when
+ * the Atlassian token endpoint repeatedly returned `access_denied:Unauthorized`
+ * to the Obsidian-bundled HTTP client. API token auth covers the same use
+ * cases (including SSO-linked Atlassian accounts that can mint tokens).
  */
 
-import { OAUTH_REFRESH_LEEWAY_SECONDS } from "../constants";
 import type { PluginSettings } from "../settings/types";
 import { buildBasicAuthHeader } from "./apiToken";
 import type { SecretsService } from "./secrets";
@@ -26,11 +28,6 @@ export interface AuthContext {
   authorizationHeader: string;
   /** Base URL the client should prefix on REST paths. */
   baseUrl: string;
-  /**
-   * Indicates whether the calling code can attempt a one-shot token refresh +
-   * retry on a 401 response. False for API token (no recovery possible).
-   */
-  refreshable: boolean;
 }
 
 /** Public Error subclass so callers can switch on `instanceof`. */
@@ -44,26 +41,9 @@ export class AuthNotConfiguredError extends Error {
   }
 }
 
-/** Thrown when OAuth is selected but PKCE flow has not yet succeeded. */
-export class OAuthNotConfiguredError extends AuthNotConfiguredError {
-  constructor() {
-    super("OAuth not yet supported in this build (Phase 3).");
-    this.name = "OAuthNotConfiguredError";
-  }
-}
-
-/**
- * Function the AuthManager calls when an OAuth access token is near expiry.
- * Lives in src/auth/tokenStore.ts; for older code paths (tests) it's
- * typed-only.
- */
-export type RefreshFn = (settings: PluginSettings) => Promise<void>;
-
 export class AuthManager {
   constructor(
     private readonly getSettings: () => PluginSettings,
-    private readonly persistSettings: () => Promise<void>,
-    private readonly refreshFn: RefreshFn | null = null,
     private readonly secrets?: SecretsService,
   ) {}
 
@@ -81,42 +61,7 @@ export class AuthManager {
         s.apiToken?.tokenSecretName
       );
     }
-    if (s.authMethod === "oauth") {
-      return !!(
-        s.oauth?.accessTokenSecretName && s.oauth?.cloudId
-      );
-    }
     return false;
-  }
-
-  /**
-   * If the current auth method needs a token refresh (OAuth, near expiry),
-   * perform it. Idempotent — safe to call before every request.
-   */
-  async ensureFresh(): Promise<void> {
-    const s = this.getSettings();
-    if (s.authMethod !== "oauth" || !s.oauth) return;
-    const remainingSec = (s.oauth.expiresAt - Date.now()) / 1000;
-    if (remainingSec > OAUTH_REFRESH_LEEWAY_SECONDS) return;
-    if (!this.refreshFn) {
-      throw new OAuthNotConfiguredError();
-    }
-    await this.refreshFn(s);
-    await this.persistSettings();
-  }
-
-  /**
-   * Force a refresh regardless of expiry. Called by the Jira client after a
-   * 401 to recover from a token Atlassian considers invalid.
-   */
-  async forceRefresh(): Promise<void> {
-    const s = this.getSettings();
-    if (s.authMethod !== "oauth" || !s.oauth) return;
-    if (!this.refreshFn) {
-      throw new OAuthNotConfiguredError();
-    }
-    await this.refreshFn(s);
-    await this.persistSettings();
   }
 
   /**
@@ -144,21 +89,6 @@ export class AuthManager {
           token,
         }),
         baseUrl: s.apiToken.siteUrl,
-        refreshable: false,
-      };
-    }
-
-    if (s.authMethod === "oauth" && s.oauth) {
-      const accessToken = await this.readSecret(s.oauth.accessTokenSecretName);
-      if (!accessToken) {
-        throw new AuthNotConfiguredError(
-          "OAuth access token is missing from secret storage. Reconnect Jira in settings.",
-        );
-      }
-      return {
-        authorizationHeader: `Bearer ${accessToken}`,
-        baseUrl: `https://api.atlassian.com/ex/jira/${s.oauth.cloudId}`,
-        refreshable: !!this.refreshFn,
       };
     }
 
