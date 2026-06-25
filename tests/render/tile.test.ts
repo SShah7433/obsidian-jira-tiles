@@ -278,6 +278,46 @@ describe("renderInto — happy path", () => {
     );
     expect(container.querySelector(".jira-tile-cell--fixversions")).toBeNull();
   });
+
+  it("places Fix Versions immediately after Due Date in the standard grid", async () => {
+    // Visual contract: Fix Versions sits next to Due Date so the two read
+    // together. Locking via DOM order — adjacent cells under the same grid.
+    const container = document.createElement("div");
+    await renderInto(
+      container,
+      { key: "PROJ-1" },
+      makeCtx({
+        fetch: async () => ({
+          data: fakeIssue({
+            fields: {
+              summary: "x",
+              duedate: "2026-09-15",
+              fixVersions: [{ id: "1", name: "v1.0", released: true }],
+            },
+          }),
+          fetchedAt: Date.now(),
+          fromCache: false,
+        }),
+      }),
+    );
+    const grid = container.querySelector(".jira-tile-grid--standard")!;
+    const cells = Array.from(grid.children);
+    const dueIndex = cells.findIndex((c) =>
+      c.classList.contains("jira-tile-cell--duedate"),
+    );
+    const fixVersionsIndex = cells.findIndex((c) =>
+      c.classList.contains("jira-tile-cell--fixversions"),
+    );
+    expect(dueIndex).toBeGreaterThan(-1);
+    expect(fixVersionsIndex).toBe(dueIndex + 1);
+    // And both must come *before* Assignee.
+    const assigneeIndex = cells.findIndex((c) =>
+      c.classList.contains("jira-tile-cell--assignee"),
+    );
+    if (assigneeIndex !== -1) {
+      expect(fixVersionsIndex).toBeLessThan(assigneeIndex);
+    }
+  });
 });
 
 describe("renderInto — error path", () => {

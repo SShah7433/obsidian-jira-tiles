@@ -359,6 +359,25 @@ function renderStandardFields(
     value.appendChild(formatCustomField(issue.fields.duedate));
   }
 
+  // Fix versions: render each version as a release-state-aware chip.
+  // Placed adjacent to Due Date because the two read together (when does this
+  // ship vs which release does it ship in). We skip the cell entirely when
+  // there are no versions (instead of showing an em-dash) since "no fix
+  // version" is the common case for new issues and a label-only cell adds
+  // noise.
+  if (
+    display.showFixVersions &&
+    Array.isArray(issue.fields.fixVersions) &&
+    issue.fields.fixVersions.length > 0
+  ) {
+    const cell = grid.createDiv({
+      cls: "jira-tile-cell jira-tile-cell--fixversions",
+    });
+    cell.createDiv({ cls: "jira-tile-field-label", text: "Fix Versions" });
+    const value = cell.createDiv({ cls: "jira-tile-fixversions-value" });
+    value.appendChild(formatCustomField(issue.fields.fixVersions));
+  }
+
   if (display.showAssignee) {
     const cell = grid.createDiv({
       cls: "jira-tile-cell jira-tile-cell--assignee",
@@ -373,23 +392,6 @@ function renderStandardFields(
         text: "Unassigned",
       });
     }
-  }
-
-  // Fix versions: render each version as a release-state-aware chip. We
-  // skip the cell entirely when there are no versions (instead of showing
-  // an em-dash) since "no fix version" is the common case for new issues
-  // and a label-only cell adds noise.
-  if (
-    display.showFixVersions &&
-    Array.isArray(issue.fields.fixVersions) &&
-    issue.fields.fixVersions.length > 0
-  ) {
-    const cell = grid.createDiv({
-      cls: "jira-tile-cell jira-tile-cell--fixversions",
-    });
-    cell.createDiv({ cls: "jira-tile-field-label", text: "Fix Versions" });
-    const value = cell.createDiv({ cls: "jira-tile-fixversions-value" });
-    value.appendChild(formatCustomField(issue.fields.fixVersions));
   }
 }
 

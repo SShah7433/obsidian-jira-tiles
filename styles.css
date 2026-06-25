@@ -226,9 +226,28 @@
   min-width: 0;
 }
 
-.jira-tile-cell--assignee,
-.jira-tile-cell--duedate {
+/*
+ * Layout intent for the standard 3-column grid:
+ *   row 1: [Issue Type] [Status] [Priority]
+ *   row 2: [Due Date  ] [Fix Versions ........... 2-col span]
+ *   row 3: [Assignee ............................. full width]
+ *   row 4: [custom fields, full width or in their own grid below]
+ *
+ * Fix Versions sits next to Due Date so the two read together (when does
+ * this ship vs which release does it ship in). It gets a 2-column span
+ * because version chips can wrap across multiple rows; Due is just a date
+ * string and fits in 1 column. When Fix Versions is absent the renderer
+ * skips the cell entirely and Due falls to its natural single-column slot,
+ * leaving the rest of the row blank — that's fine because we don't try to
+ * "fill" empty grid cells.
+ */
+.jira-tile-cell--assignee {
   grid-column: 1 / -1;
+}
+
+.jira-tile-cell--fixversions {
+  grid-column: span 2;
+  min-width: 0;
 }
 
 /*
