@@ -50,6 +50,7 @@ export class App {
     getActiveViewOfType: () => null,
     on: () => ({}),
     off: () => undefined,
+    updateOptions: () => undefined,
   };
   vault = {
     getName: () => "test-vault",

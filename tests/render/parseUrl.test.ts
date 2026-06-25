@@ -2,7 +2,11 @@
  * Tests for src/render/parseUrl.ts
  */
 
-import { issueKeyFromUrl, looksLikeJiraIssueUrl } from "../../src/render/parseUrl";
+import {
+  issueKeyFromStandaloneLine,
+  issueKeyFromUrl,
+  looksLikeJiraIssueUrl,
+} from "../../src/render/parseUrl";
 
 const SITE = "https://acme.atlassian.net";
 
@@ -76,5 +80,48 @@ describe("looksLikeJiraIssueUrl", () => {
   });
   it("is false for a non-issue URL", () => {
     expect(looksLikeJiraIssueUrl(`${SITE}/dashboard`, SITE)).toBe(false);
+  });
+});
+
+describe("issueKeyFromStandaloneLine", () => {
+  it("matches a lone Jira URL line", () => {
+    expect(
+      issueKeyFromStandaloneLine(`${SITE}/browse/SEARCH-5361`, SITE),
+    ).toBe("SEARCH-5361");
+  });
+
+  it("tolerates surrounding whitespace", () => {
+    expect(
+      issueKeyFromStandaloneLine(`   ${SITE}/browse/PROJ-1   `, SITE),
+    ).toBe("PROJ-1");
+  });
+
+  it("unwraps a Markdown autolink <...>", () => {
+    expect(
+      issueKeyFromStandaloneLine(`<${SITE}/browse/PROJ-9>`, SITE),
+    ).toBe("PROJ-9");
+  });
+
+  it("rejects a URL with surrounding prose on the same line", () => {
+    expect(
+      issueKeyFromStandaloneLine(`see ${SITE}/browse/PROJ-1 today`, SITE),
+    ).toBeNull();
+  });
+
+  it("rejects a different host", () => {
+    expect(
+      issueKeyFromStandaloneLine("https://evil.example.com/browse/PROJ-1", SITE),
+    ).toBeNull();
+  });
+
+  it("returns null for empty / non-URL lines", () => {
+    expect(issueKeyFromStandaloneLine("", SITE)).toBeNull();
+    expect(issueKeyFromStandaloneLine("just text", SITE)).toBeNull();
+  });
+
+  it("returns null when no site is configured", () => {
+    expect(
+      issueKeyFromStandaloneLine(`${SITE}/browse/PROJ-1`, undefined),
+    ).toBeNull();
   });
 });

@@ -135,6 +135,9 @@ becomes a tile:
 https://your-site.atlassian.net/browse/PROJ-123
 ```
 
+This works in both Reading view and Live Preview. In Live Preview the raw
+URL reappears when your cursor is on that line, so you can still edit it.
+
 ### Key:value form (forward-compatible)
 
 ````markdown

@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and only when the link is the whole line, so URLs inside a sentence stay
   normal links. The mode is read per-render so toggling it takes effect on
   the next note render without a reload.
+- Auto-link works in **both Reading view and Live Preview**. Reading view
+  uses a markdown post-processor; Live Preview uses a CodeMirror 6 editor
+  extension (post-processors don't run on the Live Preview surface). In
+  Live Preview the raw URL is shown again when the cursor is on the line so
+  it stays editable.
 
 ### Fixed
 

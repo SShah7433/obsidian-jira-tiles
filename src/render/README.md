@@ -10,7 +10,8 @@ Tile renderer + supporting modules.
 | `parseUrl.ts`                | Extracts an issue key from a Jira browse URL (auto-link mode)                    |
 | `tile.ts`                    | Builds the tile DOM tree (loading / loaded / error / stale)                      |
 | `codeBlockProcessor.ts`      | Glue between Obsidian's MD code-block processor and the tile renderer; exports the shared `makeRenderContext` |
-| `linkPostProcessor.ts`       | MD post-processor that replaces standalone Jira URLs with tiles (auto-link mode) |
+| `linkPostProcessor.ts`       | MD post-processor that replaces standalone Jira URLs with tiles (auto-link mode, **Reading view**) |
+| `linkEditorExtension.ts`     | CodeMirror 6 extension that replaces standalone Jira URL lines with tiles (auto-link mode, **Live Preview**) |
 | `icons.ts`                   | Wraps `setIcon` (Obsidian Lucide) + falls back to inline SVG / letter chips      |
 | `formatters/index.ts`        | Smart-formatter dispatcher (detects user / option / sprint / date / number / fallback) |
 | `formatters/user.ts`         | Avatar (or initials chip) + display name                                         |

@@ -18,9 +18,11 @@ import { JiraClient } from "./jira/client";
 import { IssueCache } from "./cache/issueCache";
 import {
   buildCodeBlockProcessor,
+  makeRenderContext,
   type CodeBlockProcessorDeps,
 } from "./render/codeBlockProcessor";
 import { buildLinkPostProcessor } from "./render/linkPostProcessor";
+import { buildLinkEditorExtension } from "./render/linkEditorExtension";
 import { buildCommands } from "./commands";
 
 /**
@@ -83,10 +85,21 @@ export default class JiraTilesPlugin extends Plugin {
       buildCodeBlockProcessor(renderDeps),
     );
 
-    // Inline Jira-URL auto-replacement. The processor itself checks the
-    // render mode on each call, so toggling the setting takes effect on the
-    // next note render without a reload.
+    // Inline Jira-URL auto-replacement in Reading view. The processor itself
+    // checks the render mode on each call, so toggling the setting takes
+    // effect on the next note render without a reload.
     this.registerMarkdownPostProcessor(buildLinkPostProcessor(renderDeps));
+
+    // Inline Jira-URL auto-replacement in Live Preview (CodeMirror). Markdown
+    // post-processors don't run on the Live Preview editor surface, so this
+    // editor extension covers that mode. It also reads renderMode live.
+    this.registerEditorExtension(
+      buildLinkEditorExtension({
+        getSettings: () => this.settings,
+        makeRenderContext: (settings) =>
+          makeRenderContext(renderDeps, settings),
+      }),
+    );
 
     // Command palette entries.
     for (const cmd of buildCommands({ app: this.app, cache: this.cache })) {
@@ -105,6 +118,10 @@ export default class JiraTilesPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+    // Flush settings changes (render mode, display toggles, custom fields)
+    // to all open Live Preview editors so the editor extension rebuilds its
+    // decorations without requiring a reload.
+    this.app.workspace.updateOptions();
   }
 
   /**

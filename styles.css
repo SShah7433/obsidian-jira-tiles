@@ -97,6 +97,13 @@
   margin: 0.75rem 0;
 }
 
+/* Live Preview widget wrapper around an auto-linked tile. The CodeMirror
+   block widget replaces the URL line, so add a little vertical breathing
+   room consistent with the reading-view container. */
+.jira-tile-lp-widget {
+  margin: 0.25rem 0;
+}
+
 .jira-tile {
   display: flex;
   flex-direction: column;

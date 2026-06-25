@@ -26,6 +26,10 @@ module.exports = {
     "!src/settings/SettingsTab.ts",
     "!src/settings/FieldPickerModal.ts",
     "!src/settings/IssueKeyModal.ts",
+    // The Live Preview editor extension requires a live CodeMirror
+    // EditorView, which isn't reproducible under jsdom. Its testable core
+    // (issueKeyFromStandaloneLine) lives in parseUrl.ts and is fully covered.
+    "!src/render/linkEditorExtension.ts",
   ],
   coverageThreshold: {
     global: {

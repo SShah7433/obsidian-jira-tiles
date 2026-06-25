@@ -66,3 +66,28 @@ export function looksLikeJiraIssueUrl(
 ): boolean {
   return issueKeyFromUrl(url, siteUrl) !== null;
 }
+
+/**
+ * If `line` (a raw editor line) is *just* a Jira issue URL — optionally
+ * wrapped in a bare Markdown autolink `<...>` or surrounding whitespace —
+ * return the issue key. Otherwise null.
+ *
+ * Used by the Live Preview editor extension, which works on raw line text
+ * rather than rendered DOM. We deliberately require the URL to be the entire
+ * line so we don't transform a URL embedded in prose.
+ */
+export function issueKeyFromStandaloneLine(
+  line: string,
+  siteUrl: string | undefined,
+): string | null {
+  let candidate = line.trim();
+  if (!candidate) return null;
+  // Strip a single Markdown autolink wrapper: <https://...>
+  if (candidate.startsWith("<") && candidate.endsWith(">")) {
+    candidate = candidate.slice(1, -1).trim();
+  }
+  // Reject anything with internal whitespace — that's not a lone URL.
+  if (/\s/.test(candidate)) return null;
+  return issueKeyFromUrl(candidate, siteUrl);
+}
+
