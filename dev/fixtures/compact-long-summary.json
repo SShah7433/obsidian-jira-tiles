@@ -4,9 +4,9 @@
   "fetchedAt": 1756000000000,
   "issue": {
     "id": "50002",
-    "key": "DOC-9999",
+    "key": "OPS-9999",
     "fields": {
-      "summary": "Investigate intermittent 500 errors when uploading large attachments through the new pipeline deployed last Thursday by the integrations team",
+      "summary": "Investigate intermittent 500 errors when uploading large attachments through the new pipeline deployed last Thursday by the infrastructure team",
       "issuetype": { "name": "Bug" },
       "status": {
         "name": "Blocked",
@@ -14,8 +14,8 @@
       },
       "priority": { "name": "Critical" },
       "assignee": {
-        "displayName": "Maria Sanchez",
-        "accountId": "u-9"
+        "displayName": "Sam Reyes",
+        "accountId": "user-sr"
       }
     }
   }

@@ -3,9 +3,9 @@
   "fetchedAt": 1756000000000,
   "issue": {
     "id": "10001",
-    "key": "PROJ-101",
+    "key": "DEMO-101",
     "fields": {
-      "summary": "Implement Jira plugin for Obsidian",
+      "summary": "Add dark mode support to the mobile app",
       "issuetype": {
         "id": "10001",
         "name": "Story"
@@ -18,8 +18,8 @@
       "duedate": "2026-07-15",
       "assignee": {
         "accountId": "user-1",
-        "displayName": "Sidd Shah",
-        "emailAddress": "sidd@example.com"
+        "displayName": "Taylor Kim",
+        "emailAddress": "tkim@example.com"
       }
     }
   }

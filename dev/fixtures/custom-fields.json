@@ -11,12 +11,12 @@
   ],
   "issue": {
     "id": "10003",
-    "key": "ENG-512",
+    "key": "PLAT-512",
     "fields": {
-      "summary": "Migrate authentication to OAuth 2.0 with PKCE",
+      "summary": "Adopt centralised configuration management across all services",
       "issuetype": { "name": "Epic" },
       "parent": {
-        "key": "PLAT-100",
+        "key": "INIT-100",
         "fields": { "issuetype": { "name": "Initiative" } }
       },
       "status": {
@@ -26,8 +26,8 @@
       "priority": { "name": "Highest" },
       "duedate": "2026-08-30",
       "assignee": {
-        "displayName": "Alex Rivera",
-        "accountId": "u-2"
+        "displayName": "Alex Novak",
+        "accountId": "user-an"
       },
       "customfield_10020": [
         { "id": 12, "name": "Sprint 41", "state": "closed" },
@@ -36,8 +36,8 @@
       "customfield_10016": 8,
       "customfield_10100": { "id": "team-7", "value": "Platform" },
       "customfield_10200": {
-        "displayName": "Priya Patel",
-        "accountId": "u-3"
+        "displayName": "Quinn Davis",
+        "accountId": "user-qd"
       },
       "customfield_10300": [
         { "value": "iOS" },

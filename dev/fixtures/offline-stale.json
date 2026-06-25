@@ -4,7 +4,7 @@
   "error": "Network unreachable",
   "issue": {
     "id": "10005",
-    "key": "PROJ-77",
+    "key": "DEMO-77",
     "fields": {
       "summary": "Tile shown from cache because the device is offline",
       "issuetype": { "name": "Task" },
@@ -15,8 +15,8 @@
       "priority": { "name": "Medium" },
       "duedate": "2026-09-01",
       "assignee": {
-        "displayName": "Jordan Lee",
-        "accountId": "u-77"
+        "displayName": "Casey Park",
+        "accountId": "user-cp"
       }
     }
   }

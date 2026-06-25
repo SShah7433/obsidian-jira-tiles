@@ -3,9 +3,9 @@
   "fetchedAt": 1756000000000,
   "issue": {
     "id": "10004",
-    "key": "DOC-9999",
+    "key": "OPS-9999",
     "fields": {
-      "summary": "Investigate intermittent 500 errors when uploading large attachments through the new pipeline that was deployed last Thursday by the integrations team and verify the rollback plan still works under load",
+      "summary": "Investigate intermittent 500 errors when uploading large attachments through the new pipeline that was deployed last Thursday by the infrastructure team and verify the rollback plan still works under load",
       "issuetype": { "name": "Bug" },
       "status": {
         "name": "Blocked",
@@ -13,8 +13,8 @@
       },
       "priority": { "name": "Critical" },
       "assignee": {
-        "displayName": "Maria Sanchez",
-        "accountId": "u-9"
+        "displayName": "Sam Reyes",
+        "accountId": "user-sr"
       }
     }
   }

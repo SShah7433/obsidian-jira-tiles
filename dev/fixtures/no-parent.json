@@ -5,7 +5,7 @@
     "id": "30001",
     "key": "PLAT-42",
     "fields": {
-      "summary": "Add OAuth refresh-token rotation support",
+      "summary": "Implement retry logic for transient database connection failures",
       "issuetype": { "name": "Task" },
       "status": {
         "name": "To Do",
@@ -14,8 +14,8 @@
       "priority": { "name": "High" },
       "duedate": "2026-09-15",
       "assignee": {
-        "displayName": "Jordan Lee",
-        "accountId": "u-77"
+        "displayName": "Casey Park",
+        "accountId": "user-cp"
       }
     }
   }

@@ -4,12 +4,12 @@
   "fetchedAt": 1756000000000,
   "issue": {
     "id": "50001",
-    "key": "MCP-2607",
+    "key": "ACME-2607",
     "fields": {
-      "summary": "Move to Leader",
+      "summary": "Migrate search indexing to Elasticsearch 8",
       "issuetype": { "name": "Story" },
       "parent": {
-        "key": "AI-3855",
+        "key": "ACME-3855",
         "fields": { "issuetype": { "name": "Epic" } }
       },
       "status": {
@@ -18,8 +18,8 @@
       },
       "priority": { "name": "Medium" },
       "assignee": {
-        "displayName": "Rahul Ramakrishna",
-        "accountId": "rrk"
+        "displayName": "Morgan Chen",
+        "accountId": "user-mc"
       }
     }
   }
