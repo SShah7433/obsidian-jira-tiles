@@ -196,6 +196,72 @@ describe("buildCodeBlockProcessor", () => {
     expect(el.textContent).toContain("Tested");
   });
 
+  it("renders one tile per line for a multi-key block", async () => {
+    const cache = new IssueCache(() => 60_000);
+    const seen: string[] = [];
+    const proc = buildCodeBlockProcessor({
+      client: {
+        getIssue: async (key: string) => {
+          seen.push(key);
+          return { key, fields: { summary: `S ${key}` } } as JiraIssue;
+        },
+        getFields: async () => [],
+      } as unknown as JiraClient,
+      cache,
+      getSettings: () => ({
+        ...DEFAULT_SETTINGS,
+        defaultCompact: false,
+        authMethod: "apiToken" as const,
+        apiToken: {
+          siteUrl: "https://example.atlassian.net",
+          email: "a@b.com",
+          tokenSecretName: "jira-tiles:api-token",
+        },
+      }),
+    });
+    const el = document.createElement("div");
+    proc("ABC-1\nABC-2 !compact\nABC-3 !full", el, {} as never);
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+
+    const items = el.querySelectorAll(".jira-tile-multi-item");
+    expect(items.length).toBe(3);
+    expect(seen).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
+    // ABC-2 forced compact, ABC-3 forced full, ABC-1 inherits default (full).
+    expect(items[0].querySelector(".jira-tile--compact")).toBeNull();
+    expect(items[1].querySelector(".jira-tile--compact")).not.toBeNull();
+    expect(items[2].querySelector(".jira-tile--compact")).toBeNull();
+    expect(el.textContent).toContain("S ABC-1");
+    expect(el.textContent).toContain("S ABC-3");
+  });
+
+  it("does not wrap a single-key block in a multi-item host", async () => {
+    const cache = new IssueCache(() => 60_000);
+    const proc = buildCodeBlockProcessor({
+      client: {
+        getIssue: async () =>
+          ({ key: "ABC-1", fields: { summary: "Solo" } }) as JiraIssue,
+        getFields: async () => [],
+      } as unknown as JiraClient,
+      cache,
+      getSettings: () => ({
+        ...DEFAULT_SETTINGS,
+        authMethod: "apiToken" as const,
+        apiToken: {
+          siteUrl: "https://example.atlassian.net",
+          email: "a@b.com",
+          tokenSecretName: "jira-tiles:api-token",
+        },
+      }),
+    });
+    const el = document.createElement("div");
+    proc("ABC-1", el, {} as never);
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(el.querySelectorAll(".jira-tile-multi-item").length).toBe(0);
+    // Single-key: the block element itself becomes the tile container.
+    expect(el.classList.contains("jira-tile-container")).toBe(true);
+    expect(el.querySelector(".jira-tile")).not.toBeNull();
+  });
+
   it("uses cache on the second call within TTL", async () => {
     const cache = new IssueCache(() => 60_000);
     let getCount = 0;

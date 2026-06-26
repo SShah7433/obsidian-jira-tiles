@@ -126,6 +126,21 @@ PROJ-123
 ```
 ````
 
+### Multiple issues in one block
+
+List several keys, one per line — each renders as its own tile, and each
+line can carry its own `!compact` / `!full` flag:
+
+````markdown
+```jira
+ABC-123
+ABC-321 !compact
+ABC-987 !full
+```
+````
+
+Lines starting with `#` are treated as comments and ignored.
+
 ### Auto-link
 
 With auto-link (or both) enabled, a line containing just a Jira issue URL

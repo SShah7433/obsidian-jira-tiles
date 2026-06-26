@@ -44,6 +44,22 @@ describe("extractIssueKeysFromMarkdown", () => {
     expect(extractIssueKeysFromMarkdown(md)).toEqual(["PROJ-9"]);
   });
 
+  it("extracts every key from a multi-key block, ignoring flags", () => {
+    const md = ["```jira", "ABC-1", "ABC-2 !compact", "ABC-3 !full", "```"].join(
+      "\n",
+    );
+    expect(extractIssueKeysFromMarkdown(md).sort()).toEqual([
+      "ABC-1",
+      "ABC-2",
+      "ABC-3",
+    ]);
+  });
+
+  it("skips invalid lines in a multi-key block but keeps valid ones", () => {
+    const md = ["```jira", "ABC-1", "garbage", "ABC-2"].join("\n") + "\n```";
+    expect(extractIssueKeysFromMarkdown(md).sort()).toEqual(["ABC-1", "ABC-2"]);
+  });
+
   it("ignores blocks with malformed keys", () => {
     const md = "```jira\nnot-a-key\n```";
     expect(extractIssueKeysFromMarkdown(md)).toEqual([]);

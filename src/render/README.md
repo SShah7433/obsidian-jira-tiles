@@ -6,7 +6,7 @@ Tile renderer + supporting modules.
 
 | File                         | Purpose                                                                          |
 |------------------------------|----------------------------------------------------------------------------------|
-| `parseBlock.ts`              | Parses ` ```jira ` block contents into an `IssueRequest`                         |
+| `parseBlock.ts`              | Parses ` ```jira ` block contents into one or more `IssueRequest`s (multi-key)   |
 | `parseUrl.ts`                | Extracts an issue key from a Jira browse URL (auto-link mode)                    |
 | `tile.ts`                    | Builds the tile DOM tree (loading / loaded / error / stale)                      |
 | `codeBlockProcessor.ts`      | Glue between Obsidian's MD code-block processor and the tile renderer; exports the shared `makeRenderContext` |

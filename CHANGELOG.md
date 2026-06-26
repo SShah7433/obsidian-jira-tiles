@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.5] — 2026-06-26
+
+### Added
+
+- **Multiple issues per code block.** A ` ```jira ` block can now list
+  several issue keys, one per line; each renders as its own tile. Every line
+  accepts its own `!compact` / `!full` flag, e.g.:
+
+  ```jira
+  ABC-123
+  ABC-321 !compact
+  ABC-987 !full
+  ```
+
+  Comment (`#`) and blank lines are ignored. The single-key and `key:` /
+  `compact:` forms are unchanged. The "Refresh tiles in current note"
+  command now refreshes every key in a multi-key block.
+
 ## [0.1.4] — 2026-06-26
 
 ### Added

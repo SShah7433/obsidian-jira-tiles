@@ -1,30 +1,30 @@
 /**
  * Parser for the contents of a ```jira fenced code block.
  *
- * MVP grammar: a single non-empty line containing the issue key, optionally
- * followed by one or more flags:
+ * Grammar: one or more non-empty lines, each a single issue key optionally
+ * followed by flags. Each line becomes its own tile, so a block can embed
+ * several issues at once:
  *
  *   ```jira
  *   PROJ-123
  *   ```
  *
  *   ```jira
- *   PROJ-123 !compact      ← force a compact (single-line) tile
- *   ```
- *
- *   ```jira
- *   PROJ-123 !full         ← force a full tile (overrides the global default)
+ *   ABC-123
+ *   ABC-321 !compact       ← force a compact (single-line) tile
+ *   ABC-987 !full          ← force a full tile (overrides the global default)
  *   ```
  *
  * Forward-compatibility: we also accept a YAML-ish key:value form so options
- * can layer in without breaking existing notes:
+ * can layer in without breaking existing notes. The KV form describes a
+ * single issue:
  *
  *   ```jira
  *   key: PROJ-123
  *   compact: true
  *   ```
  *
- * Both styles return an `IssueRequest`. The `compact` field is tri-state:
+ * Both styles produce `IssueRequest`s. The `compact` field is tri-state:
  *   - true       → explicitly compact
  *   - false      → explicitly full
  *   - undefined  → no preference; the caller applies the global default
@@ -55,11 +55,30 @@ export class InvalidJiraBlockError extends Error {
 }
 
 /**
- * Parse a code block body into an IssueRequest.
+ * Parse a code block body into a single IssueRequest.
+ *
+ * Retained for callers that only need one issue. For the multi-key form use
+ * {@link parseBlockMulti}; this returns the first issue in that list.
  *
  * @throws InvalidJiraBlockError when the content is empty or unparseable.
  */
 export function parseBlock(source: string): IssueRequest {
+  return parseBlockMulti(source)[0];
+}
+
+/**
+ * Parse a code block body into one or more IssueRequests.
+ *
+ * - Terse form: each non-comment, non-empty line is `KEY [flags...]` and
+ *   becomes its own request (in document order). This is how a single block
+ *   embeds multiple issues.
+ * - KV form (`key:`/`compact:`): describes exactly one issue and returns a
+ *   single-element array.
+ *
+ * @throws InvalidJiraBlockError when the content is empty or any line is
+ *         unparseable.
+ */
+export function parseBlockMulti(source: string): IssueRequest[] {
   const lines = source
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -72,13 +91,14 @@ export function parseBlock(source: string): IssueRequest {
   }
 
   // YAML-ish key:value form? At least one line is shaped like `key: VALUE`.
+  // The KV form always describes a single issue.
   const isKvForm = lines.some((l) => /^[a-zA-Z_]+\s*:/.test(l));
   if (isKvForm) {
-    return parseKv(lines);
+    return [parseKv(lines)];
   }
 
-  // Otherwise treat the first non-empty line as "KEY [flags...]".
-  return parseKeyLine(lines[0]);
+  // Otherwise every line is its own "KEY [flags...]" request.
+  return lines.map((line) => parseKeyLine(line));
 }
 
 /**

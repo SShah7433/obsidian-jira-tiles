@@ -129,6 +129,12 @@ export function clearCacheCommand(ctx: CommandsContext): void {
  * Walk a Markdown source string and pull out issue keys from any `\`\`\`jira`
  * fenced blocks. Used by the "refresh tiles in current note" command.
  *
+ * Handles both block forms:
+ *   - terse: one `KEY [flags]` per line (a block may list several issues);
+ *   - KV: a single `key: VALUE` line.
+ * Flags (e.g. `!compact`) and comment/blank lines are ignored, and invalid
+ * lines are skipped so a typo never aborts the refresh.
+ *
  * Exported for testing.
  */
 export function extractIssueKeysFromMarkdown(source: string): string[] {
@@ -137,16 +143,24 @@ export function extractIssueKeysFromMarkdown(source: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = blockRe.exec(source)) !== null) {
     const body = m[1];
-    // First non-empty, non-comment line, or the value of `key:`.
     const lines = body
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"));
-    let candidate = lines[0] ?? "";
+
+    // KV form: a single `key:` value describes one issue.
     const kv = lines.find((l) => /^key\s*:/i.test(l));
-    if (kv) candidate = kv.replace(/^key\s*:\s*/i, "").trim();
-    candidate = candidate.toUpperCase();
-    if (ISSUE_KEY_PATTERN.test(candidate)) keys.add(candidate);
+    if (kv) {
+      const candidate = kv.replace(/^key\s*:\s*/i, "").trim().toUpperCase();
+      if (ISSUE_KEY_PATTERN.test(candidate)) keys.add(candidate);
+      continue;
+    }
+
+    // Terse form: each line is `KEY [flags...]`; take the first token.
+    for (const line of lines) {
+      const candidate = (line.split(/\s+/)[0] ?? "").toUpperCase();
+      if (ISSUE_KEY_PATTERN.test(candidate)) keys.add(candidate);
+    }
   }
   return Array.from(keys);
 }

@@ -6,6 +6,7 @@ import {
   InvalidJiraBlockError,
   ISSUE_KEY_PATTERN,
   parseBlock,
+  parseBlockMulti,
 } from "../../src/render/parseBlock";
 
 describe("parseBlock — single-line form", () => {
@@ -121,6 +122,60 @@ describe("parseBlock — kv form", () => {
 
   it("throws when key is not a valid Jira key", () => {
     expect(() => parseBlock("key: not-valid")).toThrow(InvalidJiraBlockError);
+  });
+});
+
+describe("parseBlockMulti — multiple keys", () => {
+  it("returns one request per non-comment line, in order", () => {
+    expect(parseBlockMulti("ABC-1\nABC-2\nABC-3")).toEqual([
+      { key: "ABC-1", compact: undefined },
+      { key: "ABC-2", compact: undefined },
+      { key: "ABC-3", compact: undefined },
+    ]);
+  });
+
+  it("applies per-line flags independently", () => {
+    expect(parseBlockMulti("ABC-1\nABC-2 !compact\nABC-3 !full")).toEqual([
+      { key: "ABC-1", compact: undefined },
+      { key: "ABC-2", compact: true },
+      { key: "ABC-3", compact: false },
+    ]);
+  });
+
+  it("skips comment and blank lines", () => {
+    expect(parseBlockMulti("# heading\nABC-1\n\n# note\nABC-2")).toEqual([
+      { key: "ABC-1", compact: undefined },
+      { key: "ABC-2", compact: undefined },
+    ]);
+  });
+
+  it("throws if any line has an invalid key", () => {
+    expect(() => parseBlockMulti("ABC-1\nnot-a-key")).toThrow(
+      InvalidJiraBlockError,
+    );
+  });
+
+  it("throws if any line has an unknown flag", () => {
+    expect(() => parseBlockMulti("ABC-1\nABC-2 !smol")).toThrow(
+      InvalidJiraBlockError,
+    );
+  });
+
+  it("throws for an empty block", () => {
+    expect(() => parseBlockMulti("")).toThrow(InvalidJiraBlockError);
+  });
+
+  it("treats the KV form as a single request", () => {
+    expect(parseBlockMulti("key: PROJ-1\ncompact: true")).toEqual([
+      { key: "PROJ-1", compact: true },
+    ]);
+  });
+
+  it("parseBlock returns the first request of a multi-key block", () => {
+    expect(parseBlock("ABC-1\nABC-2 !compact")).toEqual({
+      key: "ABC-1",
+      compact: undefined,
+    });
   });
 });
 

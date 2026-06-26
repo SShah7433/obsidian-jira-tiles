@@ -15,7 +15,7 @@ import { type MarkdownPostProcessorContext } from "obsidian";
 import type { IssueCache } from "../cache/issueCache";
 import type { JiraClient } from "../jira/client";
 import { DEFAULT_ISSUE_FIELDS } from "../constants";
-import { InvalidJiraBlockError, parseBlock } from "./parseBlock";
+import { InvalidJiraBlockError, parseBlockMulti } from "./parseBlock";
 import {
   displayOptionsFromSettings,
   renderInto,
@@ -64,9 +64,9 @@ export function buildCodeBlockProcessor(
   deps: CodeBlockProcessorDeps,
 ): (source: string, el: HTMLElement, _ctx: MarkdownPostProcessorContext) => void {
   return (source, el) => {
-    let request;
+    let requests;
     try {
-      request = parseBlock(source);
+      requests = parseBlockMulti(source);
     } catch (err) {
       if (err instanceof InvalidJiraBlockError) {
         renderInvalidBlock(el, err);
@@ -76,14 +76,24 @@ export function buildCodeBlockProcessor(
     }
 
     const settings = deps.getSettings();
-    // Resolve the tri-state per-block compact flag against the global default:
-    // `!compact`/`!full` (or `compact:`) win; otherwise inherit defaultCompact.
-    const resolved = {
-      ...request,
-      compact: resolveCompact(request.compact, settings),
-    };
+    const ctx = makeRenderContext(deps, settings);
 
-    void renderInto(el, resolved, makeRenderContext(deps, settings));
+    el.empty();
+    // One block may embed several issues (one per line). Render each into its
+    // own child container so a single block can stack multiple tiles.
+    const multiple = requests.length > 1;
+    for (const request of requests) {
+      const host = multiple
+        ? el.createDiv({ cls: "jira-tile-multi-item" })
+        : el;
+      // Resolve the tri-state per-tile compact flag against the global default:
+      // `!compact`/`!full` (or `compact:`) win; otherwise inherit defaultCompact.
+      const resolved = {
+        ...request,
+        compact: resolveCompact(request.compact, settings),
+      };
+      void renderInto(host, resolved, ctx);
+    }
   };
 }
 

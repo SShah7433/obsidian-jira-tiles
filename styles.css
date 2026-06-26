@@ -97,6 +97,23 @@
   margin: 0.75rem 0;
 }
 
+/* When one ```jira block embeds multiple issues, each tile is wrapped in a
+   multi-item host. The inner .jira-tile-container already carries vertical
+   margin; collapse the wrapper's own margin so stacked tiles keep a single,
+   even gap rather than doubling up at the seams. */
+.jira-tile-multi-item {
+  margin: 0;
+}
+.jira-tile-multi-item > .jira-tile-container {
+  margin: 0.5rem 0;
+}
+.jira-tile-multi-item:first-child > .jira-tile-container {
+  margin-top: 0;
+}
+.jira-tile-multi-item:last-child > .jira-tile-container {
+  margin-bottom: 0;
+}
+
 /* Live Preview widget wrapper around an auto-linked tile. The CodeMirror
    block widget replaces the URL line, so add a little vertical breathing
    room consistent with the reading-view container. */
