@@ -194,8 +194,11 @@ function mountSkeleton(
   const header = body.createDiv({ cls: "jira-tile-header" });
   header.createDiv({ cls: "jira-tile-issuetype" });
   const title = header.createDiv({ cls: "jira-tile-title" });
-  title.createDiv({ cls: "jira-tile-summary", text: "Loading…" });
-  title.createDiv({ cls: "jira-tile-subtitle", text: key });
+  // Mirror the loaded tile: key leads the summary line, no subtitle (the
+  // subtitle only appears once we know the issue has a parent).
+  const summary = title.createDiv({ cls: "jira-tile-summary" });
+  summary.createSpan({ cls: "jira-tile-key", text: key });
+  summary.createSpan({ cls: "jira-tile-summary-text", text: "Loading…" });
 
   // Empty placeholder grid so the skeleton has its full height.
   body.createDiv({ cls: "jira-tile-grid" });
@@ -233,12 +236,30 @@ function renderLoadedTile(
   }
 
   const titleWrap = header.createDiv({ cls: "jira-tile-title" });
-  titleWrap.createDiv({
-    cls: "jira-tile-summary",
+
+  // Summary line leads with the issue's own key (clickable, like the compact
+  // tile), so the issue number is always visible without relying on the
+  // subtitle.
+  const summaryEl = titleWrap.createDiv({ cls: "jira-tile-summary" });
+  const summaryUrl = ctx.buildIssueUrl(issue.key);
+  const keyLink = summaryEl.createEl("a", {
+    cls: "jira-tile-key",
+    text: issue.key,
+    href: summaryUrl,
+    attr: { target: "_blank", rel: "noopener noreferrer" },
+  });
+  attachOpener(keyLink, summaryUrl, ctx);
+  summaryEl.createSpan({
+    cls: "jira-tile-summary-text",
     text: issue.fields.summary ?? "(no summary)",
   });
-  const subtitle = titleWrap.createDiv({ cls: "jira-tile-subtitle" });
-  buildSubtitle(subtitle, issue);
+
+  // Subtitle only conveys the parent relationship, so only render it when a
+  // parent exists.
+  if (issue.fields.parent?.key) {
+    const subtitle = titleWrap.createDiv({ cls: "jira-tile-subtitle" });
+    buildSubtitle(subtitle, issue);
+  }
 
   /* Standard fields grid (Issue Type / Status / Priority / Assignee /Due) */
 
@@ -613,8 +634,11 @@ function renderErrorTile(
   const header = body.createDiv({ cls: "jira-tile-header" });
   header.createDiv({ cls: "jira-tile-issuetype" });
   const title = header.createDiv({ cls: "jira-tile-title" });
-  title.createDiv({ cls: "jira-tile-summary", text: "Failed to load" });
-  title.createDiv({ cls: "jira-tile-subtitle", text: key });
+  // Key leads the summary line (same convention as the loaded tile); no
+  // subtitle since there's no parent data to show in the error state.
+  const summary = title.createDiv({ cls: "jira-tile-summary" });
+  summary.createSpan({ cls: "jira-tile-key", text: key });
+  summary.createSpan({ cls: "jira-tile-summary-text", text: "Failed to load" });
 
   body.createEl("p", {
     cls: "jira-tile-error-message",
@@ -656,35 +680,17 @@ function renderErrorTile(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build the issue subtitle line.
+ * Build the subtitle line, which conveys the parent relationship. Only called
+ * when the issue has a parent (epic, parent task); the issue's own key lives
+ * in the summary line instead. Example:
  *
- * Always leads with this issue's own type + key, so the issue number is
- * visible on every tile (matching the compact tile, which always shows the
- * key):
- *
- *   <Issue type label> <key> in Jira Cloud
- *
- * For sub-issues with a parent (epic, parent task), the parent relationship
- * is appended as extra context after the issue's own key, e.g.:
- *
- *   "Story PROJ-12 · Epic AI-3855 in Jira Cloud"
+ *   "Epic AI-3855 in Jira Cloud"
  */
 function buildSubtitle(parent: HTMLElement, issue: JiraIssue): void {
-  const parts: string[] = [];
-
-  // This issue's own type + key — always present.
-  const type = issue.fields.issuetype?.name ?? "Issue";
-  parts.push(`${type} ${issue.key}`);
-
-  // Parent relationship as secondary context, when present.
   const parentRef = issue.fields.parent;
-  if (parentRef?.key) {
-    const parentType = parentRef.fields?.issuetype?.name ?? "Parent";
-    parts.push(`· ${parentType} ${parentRef.key}`);
-  }
-
-  parts.push("in Jira Cloud");
-  parent.setText(parts.join(" "));
+  const parentType = parentRef?.fields?.issuetype?.name ?? "Parent";
+  const parentKey = parentRef?.key ?? "";
+  parent.setText(`${parentType} ${parentKey} in Jira Cloud`);
 }
 
 function attachOpener(el: HTMLElement, url: string, ctx: RenderContext): void {

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.8] — 2026-06-26
+
+### Changed
+
+- Full-size tiles now show the issue key inline at the start of the summary
+  line (clickable, like the compact tile) instead of in the subtitle.
+- The subtitle is now only rendered when the issue has a parent, where it
+  shows the parent relationship (e.g. `Epic AI-3855 in Jira Cloud`). Issues
+  without a parent no longer render an empty/redundant subtitle.
+
 ## [0.1.7] — 2026-06-26
 
 ### Fixed

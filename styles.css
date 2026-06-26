@@ -187,6 +187,19 @@
   line-height: 1.3;
 }
 
+/* The issue key leads the full-tile summary line (like the compact tile):
+   accent-colored, clickable, and slightly lighter than the bold summary. */
+.jira-tile-header .jira-tile-summary .jira-tile-key {
+  color: var(--text-accent);
+  font-weight: 600;
+  text-decoration: none;
+  margin-right: 0.4rem;
+  white-space: nowrap;
+}
+.jira-tile-header .jira-tile-summary .jira-tile-key:hover {
+  text-decoration: underline;
+}
+
 .jira-tile-subtitle {
   font-size: 0.95rem;
   font-weight: 600;

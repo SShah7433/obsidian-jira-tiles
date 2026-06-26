@@ -51,16 +51,19 @@ function makeCtx(over: Partial<RenderContext> = {}): RenderContext {
 }
 
 describe("renderInto — happy path", () => {
-  it("renders summary, subtitle, status, priority (with icon), assignee, and issue-type field", async () => {
+  it("renders summary with key, status, priority (with icon), assignee, and issue-type field", async () => {
     const container = document.createElement("div");
     await renderInto(container, { key: "PROJ-1" }, makeCtx());
 
-    expect(container.querySelector(".jira-tile-summary")?.textContent).toBe(
-      "Hello world",
-    );
-    const subtitle = container.querySelector(".jira-tile-subtitle");
-    expect(subtitle?.textContent).toContain("Task PROJ-1");
-    expect(subtitle?.textContent).toContain("Jira Cloud");
+    // Summary line leads with the issue key, then the summary text.
+    const summary = container.querySelector(".jira-tile-summary");
+    expect(summary?.querySelector(".jira-tile-key")?.textContent).toBe("PROJ-1");
+    expect(
+      summary?.querySelector(".jira-tile-summary-text")?.textContent,
+    ).toBe("Hello world");
+
+    // No parent on the default fixture, so no subtitle is rendered.
+    expect(container.querySelector(".jira-tile-subtitle")).toBeNull();
 
     const labels = Array.from(
       container.querySelectorAll(".jira-tile-field-label"),
@@ -89,7 +92,7 @@ describe("renderInto — happy path", () => {
     expect(chip?.textContent).toContain("Alice");
   });
 
-  it("shows the issue's own type+key, plus the parent as context, when a parent is present", async () => {
+  it("shows the issue's own key in the summary and the parent in the subtitle", async () => {
     const container = document.createElement("div");
     await renderInto(
       container,
@@ -119,21 +122,23 @@ describe("renderInto — happy path", () => {
         }),
       }),
     );
-    const subtitle = container.querySelector(".jira-tile-subtitle");
-    // The issue's own key must always be present (this was missing before).
-    expect(subtitle?.textContent).toContain("Story MCP-2607");
-    // Parent shown as secondary context.
-    expect(subtitle?.textContent).toContain("Epic AI-3855");
-    expect(subtitle?.textContent).toBe(
-      "Story MCP-2607 · Epic AI-3855 in Jira Cloud",
+    // Issue's own key lives in the summary line.
+    const summary = container.querySelector(".jira-tile-summary");
+    expect(summary?.querySelector(".jira-tile-key")?.textContent).toBe(
+      "MCP-2607",
     );
+    // Subtitle conveys the parent relationship only.
+    const subtitle = container.querySelector(".jira-tile-subtitle");
+    expect(subtitle?.textContent).toBe("Epic AI-3855 in Jira Cloud");
   });
 
-  it("falls back to issue type+own key when no parent", async () => {
+  it("omits the subtitle when there is no parent, but still shows the key", async () => {
     const container = document.createElement("div");
     await renderInto(container, { key: "PROJ-1" }, makeCtx());
-    const subtitle = container.querySelector(".jira-tile-subtitle");
-    expect(subtitle?.textContent).toBe("Task PROJ-1 in Jira Cloud");
+    expect(container.querySelector(".jira-tile-subtitle")).toBeNull();
+    expect(
+      container.querySelector(".jira-tile-summary .jira-tile-key")?.textContent,
+    ).toBe("PROJ-1");
   });
 
   it("respects display option toggles", async () => {
@@ -452,9 +457,12 @@ describe("renderResolvedTile (no fetch)", () => {
       },
       makeCtx(),
     );
-    expect(container.querySelector(".jira-tile-summary")?.textContent).toBe(
-      "Hello world",
-    );
+    expect(
+      container.querySelector(".jira-tile-summary-text")?.textContent,
+    ).toBe("Hello world");
+    expect(
+      container.querySelector(".jira-tile-summary .jira-tile-key")?.textContent,
+    ).toBe("PROJ-1");
   });
 });
 
