@@ -1,9 +1,10 @@
 /**
  * Parser for the contents of a ```jira fenced code block.
  *
- * Grammar: one or more non-empty lines, each a single issue key optionally
- * followed by flags. Each line becomes its own tile, so a block can embed
- * several issues at once:
+ * Grammar: one or more non-empty lines, each a single issue reference —
+ * either a bare key (`PROJ-123`) or a Jira issue URL — optionally followed
+ * by flags. Each line becomes its own tile, so a block can embed several
+ * issues at once:
  *
  *   ```jira
  *   PROJ-123
@@ -11,13 +12,14 @@
  *
  *   ```jira
  *   ABC-123
+ *   https://acme.atlassian.net/browse/ABC-456     ← full URL also accepted
  *   ABC-321 !compact       ← force a compact (single-line) tile
  *   ABC-987 !full          ← force a full tile (overrides the global default)
  *   ```
  *
  * Forward-compatibility: we also accept a YAML-ish key:value form so options
  * can layer in without breaking existing notes. The KV form describes a
- * single issue:
+ * single issue, and `key:` likewise accepts either a bare key or a URL:
  *
  *   ```jira
  *   key: PROJ-123
@@ -90,9 +92,12 @@ export function parseBlockMulti(source: string): IssueRequest[] {
     );
   }
 
-  // YAML-ish key:value form? At least one line is shaped like `key: VALUE`.
+  // YAML-ish key:value form? At least one line begins with a recognised KV
+  // field (`key:` or `compact:`). We deliberately match on the known field
+  // names rather than any `word:` prefix so a bare URL like
+  // `https://acme.atlassian.net/browse/PROJ-1` isn't mistaken for KV form.
   // The KV form always describes a single issue.
-  const isKvForm = lines.some((l) => /^[a-zA-Z_]+\s*:/.test(l));
+  const isKvForm = lines.some((l) => /^(key|compact)\s*:/i.test(l));
   if (isKvForm) {
     return [parseKv(lines)];
   }
@@ -160,12 +165,59 @@ function parseCompactValue(raw: string | undefined): boolean | undefined {
   return undefined;
 }
 
+/**
+ * Accept either a bare issue key (`PROJ-123`) or a full Jira URL
+ * (`https://acme.atlassian.net/browse/PROJ-123`, or a board deep link with
+ * `?selectedIssue=PROJ-123`) and return the normalized key.
+ *
+ * URL extraction here is intentionally site-agnostic — `parseBlock` runs
+ * before any settings context is available, and users pasting an issue URL
+ * almost always mean "this issue", regardless of host. Strict
+ * configured-site matching lives in `parseUrl.ts` for the auto-link path.
+ */
 function normalizeKey(raw: string): string {
-  const k = raw.trim().toUpperCase();
+  const trimmed = raw.trim();
+
+  // Try URL form first so an https://… input doesn't fail the key regex.
+  const fromUrl = extractKeyFromUrl(trimmed);
+  const candidate = fromUrl ?? trimmed;
+
+  const k = candidate.toUpperCase();
   if (!ISSUE_KEY_PATTERN.test(k)) {
     throw new InvalidJiraBlockError(
-      `\`${raw}\` is not a valid Jira issue key (expected e.g. PROJ-123).`,
+      `\`${raw}\` is not a valid Jira issue key or URL (expected e.g. PROJ-123 or https://acme.atlassian.net/browse/PROJ-123).`,
     );
   }
   return k;
+}
+
+/**
+ * If `raw` parses as a URL containing a Jira issue reference, return the
+ * raw (un-uppercased) key. Otherwise null — the caller will fall back to
+ * treating the input as a bare key.
+ *
+ * Recognised shapes:
+ *   - `…/browse/PROJ-123` (canonical issue URL; trailing slash + query OK)
+ *   - `…?selectedIssue=PROJ-123` (board/backlog deep link)
+ */
+function extractKeyFromUrl(raw: string): string | null {
+  // Cheap reject: anything without `://` can't be a URL we'd parse.
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(raw)) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+
+  const browseMatch = parsed.pathname.match(
+    /\/browse\/([A-Za-z][A-Za-z0-9_]+-\d+)\/?$/,
+  );
+  if (browseMatch) return browseMatch[1];
+
+  const selected = parsed.searchParams.get("selectedIssue");
+  if (selected) return selected;
+
+  return null;
 }

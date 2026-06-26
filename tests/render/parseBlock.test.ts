@@ -179,6 +179,76 @@ describe("parseBlockMulti — multiple keys", () => {
   });
 });
 
+describe("parseBlock — issue URL form", () => {
+  it("accepts a full /browse/ URL in place of a bare key", () => {
+    expect(parseBlock("https://acme.atlassian.net/browse/PROJ-123")).toEqual({
+      key: "PROJ-123",
+    });
+  });
+
+  it("uppercases the extracted key", () => {
+    expect(parseBlock("https://acme.atlassian.net/browse/proj-9")).toEqual({
+      key: "PROJ-9",
+    });
+  });
+
+  it("accepts a URL with a trailing slash", () => {
+    expect(parseBlock("https://acme.atlassian.net/browse/PROJ-1/")).toEqual({
+      key: "PROJ-1",
+    });
+  });
+
+  it("accepts a /browse/ URL with a query string", () => {
+    expect(
+      parseBlock("https://acme.atlassian.net/browse/PROJ-1?focusedCommentId=42"),
+    ).toEqual({ key: "PROJ-1" });
+  });
+
+  it("accepts a board deep link via ?selectedIssue=", () => {
+    expect(
+      parseBlock(
+        "https://acme.atlassian.net/jira/software/projects/PROJ/boards/1?selectedIssue=PROJ-7",
+      ),
+    ).toEqual({ key: "PROJ-7" });
+  });
+
+  it("is host-agnostic — any Jira-shaped URL works", () => {
+    // Configured-site matching is the auto-link path's concern; in a code
+    // block the user has typed the URL deliberately.
+    expect(parseBlock("https://other-host.example.com/browse/ABC-1")).toEqual({
+      key: "ABC-1",
+    });
+  });
+
+  it("supports a URL with an inline flag", () => {
+    expect(
+      parseBlock("https://acme.atlassian.net/browse/PROJ-1 !compact"),
+    ).toEqual({ key: "PROJ-1", compact: true });
+  });
+
+  it("supports a URL inside the KV form", () => {
+    expect(
+      parseBlock("key: https://acme.atlassian.net/browse/PROJ-1\ncompact: true"),
+    ).toEqual({ key: "PROJ-1", compact: true });
+  });
+
+  it("treats a bare URL line as terse form, not KV form", () => {
+    // Regression: a leading `https:` must not be mistaken for a KV field.
+    expect(
+      parseBlockMulti("https://acme.atlassian.net/browse/PROJ-1\nPROJ-2"),
+    ).toEqual([
+      { key: "PROJ-1", compact: undefined },
+      { key: "PROJ-2", compact: undefined },
+    ]);
+  });
+
+  it("throws for a URL that doesn't contain a recognisable issue reference", () => {
+    expect(() =>
+      parseBlock("https://acme.atlassian.net/wiki/spaces/HOME"),
+    ).toThrow(InvalidJiraBlockError);
+  });
+});
+
 describe("ISSUE_KEY_PATTERN", () => {
   it("matches valid keys", () => {
     expect(ISSUE_KEY_PATTERN.test("PROJ-1")).toBe(true);
