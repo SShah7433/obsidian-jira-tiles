@@ -89,7 +89,7 @@ describe("renderInto — happy path", () => {
     expect(chip?.textContent).toContain("Alice");
   });
 
-  it("uses parent issue type+key for subtitle when parent is present", async () => {
+  it("shows the issue's own type+key, plus the parent as context, when a parent is present", async () => {
     const container = document.createElement("div");
     await renderInto(
       container,
@@ -120,7 +120,13 @@ describe("renderInto — happy path", () => {
       }),
     );
     const subtitle = container.querySelector(".jira-tile-subtitle");
-    expect(subtitle?.textContent).toBe("Epic AI-3855 in Jira Cloud");
+    // The issue's own key must always be present (this was missing before).
+    expect(subtitle?.textContent).toContain("Story MCP-2607");
+    // Parent shown as secondary context.
+    expect(subtitle?.textContent).toContain("Epic AI-3855");
+    expect(subtitle?.textContent).toBe(
+      "Story MCP-2607 · Epic AI-3855 in Jira Cloud",
+    );
   });
 
   it("falls back to issue type+own key when no parent", async () => {

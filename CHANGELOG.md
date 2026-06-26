@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.7] — 2026-06-26
+
+### Fixed
+
+- Full-size tiles now always show the issue's own type + key in the
+  subtitle (e.g. `Story PROJ-12 in Jira Cloud`), matching the compact tile.
+  Previously, sub-issues with a parent showed only the parent's key
+  (`Epic AI-3855 in Jira Cloud`), hiding the issue's own number. The parent
+  is now appended as secondary context
+  (`Story PROJ-12 · Epic AI-3855 in Jira Cloud`).
+
 ## [0.1.6] — 2026-06-26
 
 ### Fixed

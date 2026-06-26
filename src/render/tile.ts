@@ -658,23 +658,31 @@ function renderErrorTile(
 /**
  * Build the issue subtitle line.
  *
- *   <Issue type label> <key> in <site name>
+ * Always leads with this issue's own type + key, so the issue number is
+ * visible on every tile (matching the compact tile, which always shows the
+ * key):
  *
- * For sub-issues with a parent (epic, parent task), prefer the parent
- * relationship as the leading context, e.g.:
+ *   <Issue type label> <key> in Jira Cloud
  *
- *   "Epic AI-3855 in Jira Cloud"
+ * For sub-issues with a parent (epic, parent task), the parent relationship
+ * is appended as extra context after the issue's own key, e.g.:
+ *
+ *   "Story PROJ-12 · Epic AI-3855 in Jira Cloud"
  */
 function buildSubtitle(parent: HTMLElement, issue: JiraIssue): void {
   const parts: string[] = [];
+
+  // This issue's own type + key — always present.
+  const type = issue.fields.issuetype?.name ?? "Issue";
+  parts.push(`${type} ${issue.key}`);
+
+  // Parent relationship as secondary context, when present.
   const parentRef = issue.fields.parent;
   if (parentRef?.key) {
     const parentType = parentRef.fields?.issuetype?.name ?? "Parent";
-    parts.push(`${parentType} ${parentRef.key}`);
-  } else {
-    const type = issue.fields.issuetype?.name ?? "Issue";
-    parts.push(`${type} ${issue.key}`);
+    parts.push(`· ${parentType} ${parentRef.key}`);
   }
+
   parts.push("in Jira Cloud");
   parent.setText(parts.join(" "));
 }

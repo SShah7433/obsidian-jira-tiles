@@ -1,6 +1,6 @@
 {
   "name": "obsidian-jira-tiles",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Embed live Atlassian Jira Cloud issues as rich tiles in Obsidian notes.",
   "main": "main.js",
   "scripts": {
