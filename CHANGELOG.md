@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.6] — 2026-06-26
+
+### Fixed
+
+- Auto-linked Jira URLs no longer render as tiles in **Source mode**. Source
+  mode shares the same CodeMirror editor as Live Preview, so the editor
+  extension was replacing URL lines with tiles there too; it now checks
+  Obsidian's `editorLivePreviewField` and decorates only in Live Preview,
+  showing the raw Markdown verbatim in Source mode. (Code-block and Reading
+  view rendering are unchanged.)
+
 ## [0.1.5] — 2026-06-26
 
 ### Added

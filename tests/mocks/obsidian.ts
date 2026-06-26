@@ -216,3 +216,14 @@ export const Platform = {
   isMobile: false,
   isDesktop: true,
 };
+
+/**
+ * Minimal stand-in for Obsidian's `editorLivePreviewField` CodeMirror
+ * StateField. The real one reports whether the editor is in Live Preview
+ * (true) vs Source mode (false). Tests that don't exercise the CM6 editor
+ * extension never read this; it exists so importing the extension under the
+ * mocked "obsidian" module resolves.
+ */
+export const editorLivePreviewField = {
+  // Shape-compatible enough for type erasure in tests; not a functional field.
+} as unknown as import("@codemirror/state").StateField<boolean>;

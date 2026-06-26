@@ -7,6 +7,11 @@
  * lines for ones that are *just* a Jira issue URL and replaces them with a
  * rendered tile widget.
  *
+ * Source mode uses the *same* CodeMirror editor as Live Preview, but there we
+ * must show the raw Markdown verbatim — rendering a tile would be wrong. We
+ * detect this via Obsidian's `editorLivePreviewField` (true only in Live
+ * Preview) and produce no decorations in Source mode.
+ *
  * Editing-friendly behaviour: a line is only replaced when the cursor /
  * selection is NOT on that line. As soon as you click into the line the raw
  * URL is shown again so you can edit it — the standard Live Preview pattern.
@@ -29,6 +34,7 @@ import {
   EditorView,
   WidgetType,
 } from "@codemirror/view";
+import { editorLivePreviewField } from "obsidian";
 import type { RenderContext } from "./tile";
 import { renderInto } from "./tile";
 import { issueKeyFromStandaloneLine } from "./parseUrl";
@@ -93,6 +99,10 @@ function buildDecorations(
   deps: LinkEditorExtensionDeps,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
+
+  // Source mode shares this CodeMirror editor with Live Preview, but there we
+  // must render the raw Markdown verbatim. Only decorate in Live Preview.
+  if (!state.field(editorLivePreviewField, false)) return builder.finish();
 
   const settings = deps.getSettings();
   if (settings.renderMode === "code-block") return builder.finish();
