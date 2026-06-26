@@ -357,6 +357,23 @@ export class JiraTilesSettingTab extends PluginSettingTab {
           }),
       );
 
+    new Setting(parent)
+      .setName("Compact tiles by default")
+      .setDesc(
+        "Render tiles as a single compact row instead of the full card. " +
+          "Override per code block with `!compact` or `!full` on the key " +
+          "line (or `compact: true|false`). Auto-linked Jira URLs always " +
+          "use this default.",
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.defaultCompact)
+          .onChange(async (value) => {
+            this.plugin.settings.defaultCompact = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     const toggles: Array<[
       keyof Pick<
         import("./types").PluginSettings,

@@ -98,6 +98,34 @@ describe("buildLinkPostProcessor — render mode gating", () => {
     await flush();
     expect(calls).toEqual(["PROJ-2"]);
   });
+
+  it("renders auto-linked tiles compact when defaultCompact is on", async () => {
+    const { client } = fakeClient();
+    const cache = new IssueCache(() => 60_000);
+    const proc = buildLinkPostProcessor({
+      client,
+      cache,
+      getSettings: () => apiTokenSettings({ defaultCompact: true }),
+    });
+    const el = paragraphWithLink(`${SITE}/browse/PROJ-3`);
+    proc(el, noopCtx);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).not.toBeNull();
+  });
+
+  it("renders auto-linked tiles full when defaultCompact is off", async () => {
+    const { client } = fakeClient();
+    const cache = new IssueCache(() => 60_000);
+    const proc = buildLinkPostProcessor({
+      client,
+      cache,
+      getSettings: () => apiTokenSettings({ defaultCompact: false }),
+    });
+    const el = paragraphWithLink(`${SITE}/browse/PROJ-4`);
+    proc(el, noopCtx);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).toBeNull();
+  });
 });
 
 describe("buildLinkPostProcessor — selectivity", () => {

@@ -14,7 +14,7 @@
 
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { CodeBlockProcessorDeps } from "./codeBlockProcessor";
-import { makeRenderContext } from "./codeBlockProcessor";
+import { makeRenderContext, resolveCompact } from "./codeBlockProcessor";
 import { issueKeyFromUrl } from "./parseUrl";
 import { renderInto } from "./tile";
 import { createEl } from "./dom";
@@ -48,9 +48,11 @@ export function buildLinkPostProcessor(
       const container = createEl("div");
       anchor.replaceWith(container);
 
+      // Auto-linked URLs have no per-link options, so they follow the global
+      // compact default.
       void renderInto(
         container,
-        { key },
+        { key, compact: resolveCompact(undefined, settings) },
         makeRenderContext(deps, settings),
       );
     }

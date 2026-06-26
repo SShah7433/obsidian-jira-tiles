@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   showIssueType: true,
   showIssueTypeField: true,
   showFixVersions: true,
+  defaultCompact: false,
   cacheTtlMinutes: DEFAULT_CACHE_TTL_MINUTES,
   customFields: [],
   storageWarningAcknowledged: false,

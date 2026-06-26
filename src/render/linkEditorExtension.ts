@@ -51,14 +51,19 @@ export interface LinkEditorExtensionDeps {
 class JiraTileWidget extends WidgetType {
   constructor(
     private readonly key: string,
+    private readonly compact: boolean,
     private readonly deps: LinkEditorExtensionDeps,
   ) {
     super();
   }
 
-  /** Widgets for the same issue key are interchangeable — avoids re-render. */
+  /**
+   * Widgets are interchangeable when they render the same key in the same
+   * (compact/full) form. Including `compact` here means flipping the global
+   * default rebuilds existing widgets rather than reusing a stale DOM.
+   */
   eq(other: JiraTileWidget): boolean {
-    return other.key === this.key;
+    return other.key === this.key && other.compact === this.compact;
   }
 
   toDOM(): HTMLElement {
@@ -67,7 +72,7 @@ class JiraTileWidget extends WidgetType {
     const settings = this.deps.getSettings();
     void renderInto(
       container,
-      { key: this.key },
+      { key: this.key, compact: this.compact },
       this.deps.makeRenderContext(settings),
     );
     return container;
@@ -93,6 +98,9 @@ function buildDecorations(
   if (settings.renderMode === "code-block") return builder.finish();
   const site = settings.apiToken?.siteUrl;
   if (!site) return builder.finish();
+  // Auto-linked URLs have no per-link options, so they follow the global
+  // compact default.
+  const compact = settings.defaultCompact;
 
   const selection = state.selection;
   const doc = state.doc;
@@ -115,7 +123,7 @@ function buildDecorations(
       line.from,
       line.to,
       Decoration.replace({
-        widget: new JiraTileWidget(key, deps),
+        widget: new JiraTileWidget(key, compact, deps),
         block: true,
       }),
     );

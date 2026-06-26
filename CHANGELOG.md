@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] — 2026-06-26
+
+### Added
+
+- **Compact tiles.** Tiles can render as a single compact row instead of the
+  full card.
+  - New **Compact tiles by default** setting (Display section). Code blocks
+    and auto-linked Jira URLs inherit it.
+  - Per-tile override in code blocks via a flag on the key line:
+    `PROJ-123 !compact` forces compact, `PROJ-123 !full` forces full —
+    regardless of the global default. The last flag wins; unknown `!flags`
+    are rejected so typos surface.
+  - The `key:` / `compact:` form now accepts `true`/`false`, `yes`/`no`, and
+    `1`/`0`; omitting `compact:` inherits the global default.
+
 ## [0.1.3] — 2026-06-25
 
 ### Changed

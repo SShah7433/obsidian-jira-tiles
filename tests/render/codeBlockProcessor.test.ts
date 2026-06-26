@@ -6,6 +6,7 @@ import {
   buildCodeBlockProcessor,
   buildIssueUrl,
   fieldsForRequest,
+  resolveCompact,
 } from "../../src/render/codeBlockProcessor";
 import { IssueCache } from "../../src/cache/issueCache";
 import { DEFAULT_SETTINGS } from "../../src/settings/defaults";
@@ -75,6 +76,77 @@ describe("fieldsForRequest", () => {
     });
     expect(got).toContain("customfield_10020");
     expect(got).not.toContain("customfield_10016");
+  });
+});
+
+describe("resolveCompact", () => {
+  it("uses the per-tile preference when set", () => {
+    expect(resolveCompact(true, { ...DEFAULT_SETTINGS, defaultCompact: false })).toBe(true);
+    expect(resolveCompact(false, { ...DEFAULT_SETTINGS, defaultCompact: true })).toBe(false);
+  });
+
+  it("falls back to defaultCompact when no per-tile preference", () => {
+    expect(resolveCompact(undefined, { ...DEFAULT_SETTINGS, defaultCompact: true })).toBe(true);
+    expect(resolveCompact(undefined, { ...DEFAULT_SETTINGS, defaultCompact: false })).toBe(false);
+  });
+});
+
+describe("buildCodeBlockProcessor — compact resolution", () => {
+  function makeProc(defaultCompact: boolean) {
+    const cache = new IssueCache(() => 60_000);
+    return buildCodeBlockProcessor({
+      client: {
+        getIssue: async () =>
+          ({ key: "PROJ-1", fields: { summary: "Tested" } }) as JiraIssue,
+        getFields: async () => [],
+      } as unknown as JiraClient,
+      cache,
+      getSettings: () => ({
+        ...DEFAULT_SETTINGS,
+        defaultCompact,
+        authMethod: "apiToken" as const,
+        apiToken: {
+          siteUrl: "https://example.atlassian.net",
+          email: "a@b.com",
+          tokenSecretName: "jira-tiles:api-token",
+        },
+      }),
+    });
+  }
+
+  async function flush() {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it("renders compact when defaultCompact is on and no flag given", async () => {
+    const el = document.createElement("div");
+    makeProc(true)("PROJ-1", el, {} as never);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).not.toBeNull();
+  });
+
+  it("renders full when defaultCompact is off and no flag given", async () => {
+    const el = document.createElement("div");
+    makeProc(false)("PROJ-1", el, {} as never);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).toBeNull();
+    expect(el.textContent).toContain("Tested");
+  });
+
+  it("`!compact` forces compact even when default is off", async () => {
+    const el = document.createElement("div");
+    makeProc(false)("PROJ-1 !compact", el, {} as never);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).not.toBeNull();
+  });
+
+  it("`!full` forces full even when default is on", async () => {
+    const el = document.createElement("div");
+    makeProc(true)("PROJ-1 !full", el, {} as never);
+    await flush();
+    expect(el.querySelector(".jira-tile--compact")).toBeNull();
   });
 });
 

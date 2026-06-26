@@ -1,29 +1,46 @@
 /**
  * Parser for the contents of a ```jira fenced code block.
  *
- * MVP grammar: a single non-empty line containing the issue key.
+ * MVP grammar: a single non-empty line containing the issue key, optionally
+ * followed by one or more flags:
  *
  *   ```jira
  *   PROJ-123
  *   ```
  *
- * Forward-compatibility: we also accept a YAML-ish key:value form so future
- * options (compact, fields, refresh) can layer in without breaking existing
- * notes:
+ *   ```jira
+ *   PROJ-123 !compact      ← force a compact (single-line) tile
+ *   ```
+ *
+ *   ```jira
+ *   PROJ-123 !full         ← force a full tile (overrides the global default)
+ *   ```
+ *
+ * Forward-compatibility: we also accept a YAML-ish key:value form so options
+ * can layer in without breaking existing notes:
  *
  *   ```jira
  *   key: PROJ-123
  *   compact: true
  *   ```
  *
- * Both styles return an `IssueRequest`.
+ * Both styles return an `IssueRequest`. The `compact` field is tri-state:
+ *   - true       → explicitly compact
+ *   - false      → explicitly full
+ *   - undefined  → no preference; the caller applies the global default
+ *                  (`PluginSettings.defaultCompact`).
  */
 
-/** Validated, lowercase-normalized contents of a ```jira block. */
+/** Validated, normalized contents of a ```jira block. */
 export interface IssueRequest {
   /** Uppercased issue key, e.g. "PROJ-123". */
   key: string;
-  /** Whether to render a compact (single-line) tile. Future use. */
+  /**
+   * Whether to render a compact (single-line) tile.
+   *   - `true`  → forced compact (`!compact` / `compact: true`)
+   *   - `false` → forced full (`!full` / `compact: false`)
+   *   - `undefined` → inherit the global `defaultCompact` setting.
+   */
   compact?: boolean;
 }
 
@@ -54,15 +71,43 @@ export function parseBlock(source: string): IssueRequest {
     );
   }
 
-  // YAML-ish key:value form? At least one line contains a colon and the first
-  // line is shaped like `key: VALUE`.
+  // YAML-ish key:value form? At least one line is shaped like `key: VALUE`.
   const isKvForm = lines.some((l) => /^[a-zA-Z_]+\s*:/.test(l));
   if (isKvForm) {
     return parseKv(lines);
   }
 
-  // Otherwise treat the first non-empty line as the key.
-  return { key: normalizeKey(lines[0]) };
+  // Otherwise treat the first non-empty line as "KEY [flags...]".
+  return parseKeyLine(lines[0]);
+}
+
+/**
+ * Parse the terse first line: an issue key optionally followed by
+ * whitespace-separated flags. Currently recognised flags:
+ *   - `!compact` → compact tile
+ *   - `!full`    → full tile
+ * Unknown `!flags` are rejected so typos surface instead of silently no-op-ing.
+ */
+function parseKeyLine(line: string): IssueRequest {
+  const tokens = line.split(/\s+/).filter((t) => t.length > 0);
+  const keyToken = tokens[0];
+  const flags = tokens.slice(1);
+
+  let compact: boolean | undefined;
+  for (const flag of flags) {
+    const normalized = flag.toLowerCase();
+    if (normalized === "!compact") {
+      compact = true;
+    } else if (normalized === "!full") {
+      compact = false;
+    } else {
+      throw new InvalidJiraBlockError(
+        `Unknown flag \`${flag}\`. Supported flags: \`!compact\`, \`!full\`.`,
+      );
+    }
+  }
+
+  return { key: normalizeKey(keyToken), compact };
 }
 
 function parseKv(lines: string[]): IssueRequest {
@@ -78,9 +123,21 @@ function parseKv(lines: string[]): IssueRequest {
       "Missing `key` in jira block. Use `key: PROJ-123`.",
     );
   }
-  const compactRaw = map.get("compact");
-  const compact = compactRaw === "true" || compactRaw === "1";
-  return { key: normalizeKey(key), compact };
+  return { key: normalizeKey(key), compact: parseCompactValue(map.get("compact")) };
+}
+
+/**
+ * Interpret a `compact:` KV value. Returns `undefined` (inherit the global
+ * default) when the key is absent; otherwise maps truthy/falsy spellings.
+ */
+function parseCompactValue(raw: string | undefined): boolean | undefined {
+  if (raw === undefined) return undefined;
+  const v = raw.trim().toLowerCase();
+  if (v === "true" || v === "1" || v === "yes") return true;
+  if (v === "false" || v === "0" || v === "no") return false;
+  // Unrecognised value: treat as "no preference" rather than throwing, so a
+  // stray value doesn't break an otherwise-valid block.
+  return undefined;
 }
 
 function normalizeKey(raw: string): string {

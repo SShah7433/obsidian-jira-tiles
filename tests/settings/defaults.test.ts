@@ -51,4 +51,13 @@ describe("mergeWithDefaults", () => {
       "auto-link",
     );
   });
+
+  it("defaults defaultCompact to false", () => {
+    expect(DEFAULT_SETTINGS.defaultCompact).toBe(false);
+    expect(mergeWithDefaults({}).defaultCompact).toBe(false);
+  });
+
+  it("preserves a user-enabled defaultCompact", () => {
+    expect(mergeWithDefaults({ defaultCompact: true }).defaultCompact).toBe(true);
+  });
 });

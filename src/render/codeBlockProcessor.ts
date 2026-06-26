@@ -75,8 +75,27 @@ export function buildCodeBlockProcessor(
       throw err;
     }
 
-    void renderInto(el, request, makeRenderContext(deps, deps.getSettings()));
+    const settings = deps.getSettings();
+    // Resolve the tri-state per-block compact flag against the global default:
+    // `!compact`/`!full` (or `compact:`) win; otherwise inherit defaultCompact.
+    const resolved = {
+      ...request,
+      compact: resolveCompact(request.compact, settings),
+    };
+
+    void renderInto(el, resolved, makeRenderContext(deps, settings));
   };
+}
+
+/**
+ * Resolve a tri-state per-tile compact preference against the global default.
+ * `undefined` (no per-tile preference) inherits `settings.defaultCompact`.
+ */
+export function resolveCompact(
+  perTile: boolean | undefined,
+  settings: PluginSettings,
+): boolean {
+  return perTile ?? settings.defaultCompact;
 }
 
 /* -------------------------------------------------------------------------- */

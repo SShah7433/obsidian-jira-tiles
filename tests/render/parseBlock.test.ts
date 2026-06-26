@@ -25,6 +25,10 @@ describe("parseBlock — single-line form", () => {
     expect(parseBlock("PROJ_X-9")).toEqual({ key: "PROJ_X-9" });
   });
 
+  it("leaves compact undefined (inherit default) for a bare key", () => {
+    expect(parseBlock("PROJ-123").compact).toBeUndefined();
+  });
+
   it("throws for empty content", () => {
     expect(() => parseBlock("")).toThrow(InvalidJiraBlockError);
     expect(() => parseBlock("   \n   ")).toThrow(InvalidJiraBlockError);
@@ -38,9 +42,52 @@ describe("parseBlock — single-line form", () => {
   });
 });
 
+describe("parseBlock — inline flags", () => {
+  it("parses `!compact` after the key", () => {
+    expect(parseBlock("PROJ-1 !compact")).toEqual({
+      key: "PROJ-1",
+      compact: true,
+    });
+  });
+
+  it("parses `!full` after the key", () => {
+    expect(parseBlock("PROJ-1 !full")).toEqual({
+      key: "PROJ-1",
+      compact: false,
+    });
+  });
+
+  it("is case-insensitive for flags and key", () => {
+    expect(parseBlock("proj-1 !COMPACT")).toEqual({
+      key: "PROJ-1",
+      compact: true,
+    });
+  });
+
+  it("tolerates extra whitespace between key and flag", () => {
+    expect(parseBlock("PROJ-1    !full")).toEqual({
+      key: "PROJ-1",
+      compact: false,
+    });
+  });
+
+  it("throws on an unknown flag so typos surface", () => {
+    expect(() => parseBlock("PROJ-1 !smol")).toThrow(InvalidJiraBlockError);
+    expect(() => parseBlock("PROJ-1 compactx")).toThrow(InvalidJiraBlockError);
+  });
+
+  it("the last flag wins when both are given", () => {
+    expect(parseBlock("PROJ-1 !compact !full").compact).toBe(false);
+    expect(parseBlock("PROJ-1 !full !compact").compact).toBe(true);
+  });
+});
+
 describe("parseBlock — kv form", () => {
-  it("parses key:value", () => {
-    expect(parseBlock("key: PROJ-1")).toEqual({ key: "PROJ-1", compact: false });
+  it("parses key:value with no compact preference", () => {
+    expect(parseBlock("key: PROJ-1")).toEqual({
+      key: "PROJ-1",
+      compact: undefined,
+    });
   });
 
   it("supports compact:true", () => {
@@ -50,11 +97,22 @@ describe("parseBlock — kv form", () => {
     });
   });
 
-  it("supports compact:false implicit", () => {
+  it("supports compact:false", () => {
     expect(parseBlock("key: PROJ-1\ncompact: false")).toEqual({
       key: "PROJ-1",
       compact: false,
     });
+  });
+
+  it("accepts yes/no and 1/0 spellings", () => {
+    expect(parseBlock("key: PROJ-1\ncompact: yes").compact).toBe(true);
+    expect(parseBlock("key: PROJ-1\ncompact: 1").compact).toBe(true);
+    expect(parseBlock("key: PROJ-1\ncompact: no").compact).toBe(false);
+    expect(parseBlock("key: PROJ-1\ncompact: 0").compact).toBe(false);
+  });
+
+  it("treats an unrecognised compact value as no preference", () => {
+    expect(parseBlock("key: PROJ-1\ncompact: maybe").compact).toBeUndefined();
   });
 
   it("throws when key is missing", () => {

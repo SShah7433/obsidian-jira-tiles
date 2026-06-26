@@ -82,6 +82,14 @@ export interface PluginSettings {
   /** Show the "Fix Versions" labeled field with release-state chips. */
   showFixVersions: boolean;
 
+  /**
+   * Render tiles compact (single-line) by default. Per-tile syntax overrides
+   * this: in code blocks use `!compact` / `!full` (or `compact: true|false`).
+   * Auto-linked Jira URLs always use this default (they have no per-link
+   * options).
+   */
+  defaultCompact: boolean;
+
   /** Cache TTL in minutes; controls when tiles auto-refresh. */
   cacheTtlMinutes: number;
 

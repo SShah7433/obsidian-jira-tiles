@@ -138,6 +138,30 @@ https://your-site.atlassian.net/browse/PROJ-123
 This works in both Reading view and Live Preview. In Live Preview the raw
 URL reappears when your cursor is on that line, so you can still edit it.
 
+### Compact tiles
+
+Tiles can render as a single compact row instead of the full card.
+
+Set the default in *Settings → Jira Tiles → Display → Compact tiles by
+default*. Code blocks inherit this default and can override it per tile with
+a flag on the key line:
+
+````markdown
+```jira
+PROJ-123 !compact
+```
+````
+
+````markdown
+```jira
+PROJ-123 !full
+```
+````
+
+`!compact` forces a compact tile and `!full` forces a full tile, regardless
+of the global default. Auto-linked Jira URLs have no per-link syntax, so they
+always follow the global default.
+
 ### Key:value form (forward-compatible)
 
 ````markdown
@@ -147,7 +171,8 @@ compact: true
 ```
 ````
 
-(Compact rendering is reserved for a future release.)
+`compact:` accepts `true`/`false` (also `yes`/`no`, `1`/`0`). Omit it to
+inherit the global default.
 
 ### Commands
 
